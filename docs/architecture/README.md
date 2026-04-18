@@ -212,13 +212,13 @@ Work through phases in order. Check off each item when complete. Do not advance 
 
 ### Phase 3 — Calibration
 
-- [ ] Define `CalibratedModel` wrapper (Python): implements `Model` protocol, applies correction
-- [ ] Define `Calibrator` protocol: `fit(probs, outcomes)` / `transform(probs) -> probs`
-- [ ] Implement Platt scaling calibrator
-- [ ] Implement isotonic regression calibrator
-- [ ] Implement Brier score and log-loss evaluation utilities
-- [ ] Implement reliability diagram (calibration curve) generation
-- [ ] Unit tests for calibrators
+- [x] Define `CalibratedModel` wrapper (Python): implements `Model` protocol, applies correction
+- [x] Define `Calibrator` protocol: `fit(probs, outcomes)` / `transform(probs) -> probs`
+- [x] Implement Platt scaling calibrator
+- [x] Implement isotonic regression calibrator
+- [x] Implement Brier score and log-loss evaluation utilities
+- [x] Implement reliability diagram (calibration curve) generation
+- [x] Unit tests for calibrators
 
 ### Phase 4 — Value Analysis
 
