@@ -38,6 +38,7 @@ type staticData struct {
 // then applies proportional devig within each market snapshot.
 // It is intended for backtesting where no live bookmaker connection is available.
 type StaticOddsProvider struct {
+	books   []Book
 	events  map[string]Event
 	markets map[string]Market
 	lines   map[string][]Line // key: marketID
@@ -57,6 +58,7 @@ func NewStaticOddsProvider(path string) (*StaticOddsProvider, error) {
 	}
 
 	p := &StaticOddsProvider{
+		books:   raw.Books,
 		events:  make(map[string]Event, len(raw.Events)),
 		markets: make(map[string]Market, len(raw.Markets)),
 		lines:   make(map[string][]Line),
@@ -100,6 +102,13 @@ func (p *StaticOddsProvider) Markets(_ context.Context, eventID string) ([]Marke
 			result = append(result, m)
 		}
 	}
+	return result, nil
+}
+
+// Books returns the bookmakers loaded from the static file.
+func (p *StaticOddsProvider) Books(_ context.Context) ([]Book, error) {
+	result := make([]Book, len(p.books))
+	copy(result, p.books)
 	return result, nil
 }
 

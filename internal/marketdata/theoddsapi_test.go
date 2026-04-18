@@ -283,4 +283,29 @@ func TestTheOddsAPIProvider(t *testing.T) {
 			t.Error("expected error for unsupported sport, got nil")
 		}
 	})
+
+	t.Run("Books returns classified books seen in last refresh", func(t *testing.T) {
+		// Arrange — seed the cache
+		if _, err := p.Events(ctx, marketdata.SportNFL, "2024"); err != nil {
+			t.Fatalf("Events (setup): %v", err)
+		}
+
+		// Act
+		books, err := p.Books(ctx)
+
+		// Assert
+		if err != nil {
+			t.Fatalf("Books: %v", err)
+		}
+		if len(books) != 1 {
+			t.Fatalf("Books() count = %d, want 1", len(books))
+		}
+		b := books[0]
+		if b.ID != "draftkings" {
+			t.Errorf("Book.ID = %q, want %q", b.ID, "draftkings")
+		}
+		if b.Type != marketdata.BookTypeSoft {
+			t.Errorf("Book.Type = %q, want %q", b.Type, marketdata.BookTypeSoft)
+		}
+	})
 }

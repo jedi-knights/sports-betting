@@ -104,6 +104,25 @@ func TestStaticOddsProvider(t *testing.T) {
 		}
 	})
 
+	t.Run("Books returns books loaded from file", func(t *testing.T) {
+		// Act
+		books, err := p.Books(ctx)
+
+		// Assert
+		if err != nil {
+			t.Fatalf("Books: %v", err)
+		}
+		if len(books) != 1 {
+			t.Fatalf("Books() count = %d, want 1", len(books))
+		}
+		if books[0].ID != "pinnacle" {
+			t.Errorf("Book.ID = %q, want %q", books[0].ID, "pinnacle")
+		}
+		if books[0].Type != marketdata.BookTypeSharp {
+			t.Errorf("Book.Type = %q, want %q", books[0].Type, marketdata.BookTypeSharp)
+		}
+	})
+
 	t.Run("KC -200 devigged probability is 9/14", func(t *testing.T) {
 		lines, err := p.Lines(ctx, "nfl-2023-week1-kc-chi-ml")
 		if err != nil {

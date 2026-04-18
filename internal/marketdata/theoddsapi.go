@@ -12,6 +12,32 @@ import (
 
 var _ OddsProvider = (*TheOddsAPIProvider)(nil)
 
+// knownBookmakers classifies US bookmakers by their market-making behaviour.
+// Keys are The Odds API bookmaker identifiers.
+// Bookmakers absent from this map are treated as soft by default.
+var knownBookmakers = map[string]Book{
+	"pinnacle":      {ID: "pinnacle", Name: "Pinnacle", Type: BookTypeSharp},
+	"lowvig":        {ID: "lowvig", Name: "LowVig.ag", Type: BookTypeSharp},
+	"betonlineag":   {ID: "betonlineag", Name: "BetOnline.ag", Type: BookTypeSharp},
+	"bookmaker":     {ID: "bookmaker", Name: "BookMaker", Type: BookTypeSharp},
+	"circa":         {ID: "circa", Name: "Circa Sports", Type: BookTypeSharp},
+	"betfair_ex_us": {ID: "betfair_ex_us", Name: "Betfair Exchange", Type: BookTypeExchange},
+	"draftkings":    {ID: "draftkings", Name: "DraftKings", Type: BookTypeSoft},
+	"fanduel":       {ID: "fanduel", Name: "FanDuel", Type: BookTypeSoft},
+	"betmgm":        {ID: "betmgm", Name: "BetMGM", Type: BookTypeSoft},
+	"caesars":       {ID: "caesars", Name: "Caesars", Type: BookTypeSoft},
+	"pointsbetus":   {ID: "pointsbetus", Name: "PointsBet", Type: BookTypeSoft},
+	"betrivers":     {ID: "betrivers", Name: "BetRivers", Type: BookTypeSoft},
+	"wynnbet":       {ID: "wynnbet", Name: "WynnBet", Type: BookTypeSoft},
+	"barstool":      {ID: "barstool", Name: "Barstool", Type: BookTypeSoft},
+	"hardrock":      {ID: "hardrock", Name: "Hard Rock Bet", Type: BookTypeSoft},
+	"unibet_us":     {ID: "unibet_us", Name: "Unibet", Type: BookTypeSoft},
+	"bet365_us":     {ID: "bet365_us", Name: "Bet365", Type: BookTypeSoft},
+	"superbook":     {ID: "superbook", Name: "SuperBook", Type: BookTypeSoft},
+	"espnbet":       {ID: "espnbet", Name: "ESPN BET", Type: BookTypeSoft},
+	"fliff":         {ID: "fliff", Name: "Fliff", Type: BookTypeSoft},
+}
+
 // sportKeys maps our internal Sport type to The Odds API v4 sport key.
 var sportKeys = map[Sport]string{
 	SportNFL:    "americanfootball_nfl",
@@ -67,6 +93,7 @@ type TheOddsAPIProvider struct {
 	httpClient *http.Client
 
 	mu           sync.RWMutex
+	books        []Book
 	events       map[string]Event
 	eventMarkets map[string][]string // eventID → []marketID (ordered, deduplicated)
 	markets      map[string]Market   // marketID → Market
@@ -136,6 +163,16 @@ func (p *TheOddsAPIProvider) Markets(_ context.Context, eventID string) ([]Marke
 	return result, nil
 }
 
+// Books returns the bookmakers seen in the last refresh, classified by type.
+// Events must be fetched first to populate the cache.
+func (p *TheOddsAPIProvider) Books(_ context.Context) ([]Book, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	result := make([]Book, len(p.books))
+	copy(result, p.books)
+	return result, nil
+}
+
 // Lines returns all lines for the given market from the cache.
 // Events must be fetched first to populate the cache.
 func (p *TheOddsAPIProvider) Lines(_ context.Context, marketID string) ([]Line, error) {
@@ -179,6 +216,7 @@ func (p *TheOddsAPIProvider) refresh(ctx context.Context, sport Sport, sportKey 
 	events := make(map[string]Event, len(apiEvents))
 	eventMarkets := make(map[string][]string)
 	markets := make(map[string]Market)
+	seenBooks := make(map[string]Book)
 	var allLines []Line
 
 	for _, ae := range apiEvents {
@@ -193,6 +231,13 @@ func (p *TheOddsAPIProvider) refresh(ctx context.Context, sport Sport, sportKey 
 		}
 
 		for _, bm := range ae.Bookmakers {
+			if _, seen := seenBooks[bm.Key]; !seen {
+				if known, ok := knownBookmakers[bm.Key]; ok {
+					seenBooks[bm.Key] = known
+				} else {
+					seenBooks[bm.Key] = Book{ID: bm.Key, Name: bm.Title, Type: BookTypeSoft}
+				}
+			}
 			for _, mkt := range bm.Markets {
 				marketType, ok := apiMarketTypes[mkt.Key]
 				if !ok {
@@ -251,7 +296,13 @@ func (p *TheOddsAPIProvider) refresh(ctx context.Context, sport Sport, sportKey 
 		linesByMarket[l.MarketID] = append(linesByMarket[l.MarketID], l)
 	}
 
+	books := make([]Book, 0, len(seenBooks))
+	for _, b := range seenBooks {
+		books = append(books, b)
+	}
+
 	p.mu.Lock()
+	p.books = books
 	p.events = events
 	p.eventMarkets = eventMarkets
 	p.markets = markets
