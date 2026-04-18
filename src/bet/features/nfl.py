@@ -33,10 +33,14 @@ class NFLFeatureExtractor:
         k_factor: float = 20.0,
         home_advantage: float = 65.0,
         initial_rating: float = 1500.0,
+        use_mov: bool = True,
+        mov_reference: float = 7.0,
     ) -> None:
         self._k_factor = k_factor
         self._home_advantage = home_advantage
         self._initial_rating = initial_rating
+        self._use_mov = use_mov
+        self._mov_reference = mov_reference
         self._examples: list[TrainingExample] = []
 
     def fit(self, examples: list[TrainingExample]) -> None:
@@ -70,6 +74,8 @@ class NFLFeatureExtractor:
             k_factor=self._k_factor,
             home_advantage=self._home_advantage,
             initial_rating=self._initial_rating,
+            use_mov=self._use_mov,
+            mov_reference=self._mov_reference,
         )
         for ex in self._examples:
             if ex.outcome.final_at < as_of:

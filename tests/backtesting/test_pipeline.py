@@ -107,3 +107,69 @@ class TestBacktestPipelineRun:
         # Pipeline must not raise LookaheadBiasError when data is clean
         pipeline = _make_pipeline(min_edge=0.0, min_train=5)
         pipeline.run(_make_nfl_games(25))  # should not raise
+
+    def test_predictions_reflect_training_history(self) -> None:
+        """Elo predictions must use team ratings built from training games.
+
+        A team that wins every training game should be predicted as a clear
+        favourite — not as the static 59% that home-advantage alone produces.
+        If the extractor's fit() is never called the model has no data and
+        every prediction collapses to the default home-advantage probability.
+        """
+        base = datetime(2023, 1, 1, tzinfo=UTC)
+
+        # Arrange — 15 blowout wins for Dominant; Weak never scores
+        train_games = [
+            HistoricalGame(
+                event_id=f"train-{i}",
+                sport="nfl",
+                home_team="Dominant",
+                away_team="Weak",
+                game_date=base + timedelta(weeks=i),
+                home_score=35,
+                away_score=0,
+                home_win_odds=2.10,
+                away_win_odds=2.10,
+                draw_odds=None,
+                closing_home_win_odds=2.10,
+                closing_away_win_odds=2.10,
+                closing_draw_odds=None,
+            )
+            for i in range(15)
+        ]
+        test_game = HistoricalGame(
+            event_id="test-0",
+            sport="nfl",
+            home_team="Dominant",
+            away_team="Weak",
+            game_date=base + timedelta(weeks=15),
+            home_score=28,
+            away_score=10,
+            home_win_odds=2.10,
+            away_win_odds=2.10,
+            draw_odds=None,
+            closing_home_win_odds=2.10,
+            closing_away_win_odds=2.10,
+            closing_draw_odds=None,
+        )
+        pipeline = BacktestPipeline(
+            model=EloModel(),
+            extractor=NFLFeatureExtractor(),
+            detector=MinimumEdgeDetector(min_edge=0.0),
+            sizer=KellySizer(fraction=0.25),
+            bankroll=1000.0,
+            min_train_games=10,
+        )
+
+        # Act
+        results = pipeline.run(train_games + [test_game])
+
+        # Assert — Dominant has won 15/15; predicted home_prob must be >> 0.80.
+        # The static home-advantage-only bug produces exactly ~0.593.
+        home_result = next((r for r in results if r.bet_id == "test-0_home_win"), None)
+        assert home_result is not None, "Expected a home_win bet on test-0"
+        assert home_result.model_prob > 0.75, (
+            f"Dominant should be predicted as a strong favourite (>0.75) "
+            f"after 15 wins, but model_prob={home_result.model_prob:.4f}. "
+            "Likely cause: extractor.fit() is never called by the pipeline."
+        )

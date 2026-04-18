@@ -19,8 +19,9 @@ class MinimumEdgeDetector:
             at the cost of including weaker edges.
     """
 
-    def __init__(self, min_edge: float = 0.02) -> None:
+    def __init__(self, min_edge: float = 0.02, max_odds: float = float("inf")) -> None:
         self._min_edge = min_edge
+        self._max_odds = max_odds
 
     def detect(
         self,
@@ -38,6 +39,8 @@ class MinimumEdgeDetector:
         """
         value_bets: list[ValueBet] = []
         for line in lines:
+            if line.decimal_odds > self._max_odds:
+                continue
             model_prob = self._model_prob_for_side(estimate, line.side)
             if model_prob is None:
                 continue

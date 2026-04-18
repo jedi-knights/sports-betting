@@ -126,6 +126,57 @@ class TestEloFit:
         assert model.rating("anyone") == 1500.0
 
 
+class TestEloMarginOfVictory:
+    def test_blowout_produces_more_rating_change_than_close_win(self) -> None:
+        # Arrange
+        model_close = EloModel(home_advantage=0.0, use_mov=True)
+        model_blowout = EloModel(home_advantage=0.0, use_mov=True)
+
+        # Act
+        model_close.update("TeamA", "TeamB", 17, 16)
+        model_blowout.update("TeamA", "TeamB", 42, 7)
+
+        # Assert
+        assert model_blowout.rating("TeamA") > model_close.rating("TeamA")
+        assert model_blowout.rating("TeamB") < model_close.rating("TeamB")
+
+    def test_use_mov_false_gives_same_change_regardless_of_margin(self) -> None:
+        # Arrange
+        model_close = EloModel(home_advantage=0.0, use_mov=False)
+        model_blowout = EloModel(home_advantage=0.0, use_mov=False)
+
+        # Act
+        model_close.update("TeamA", "TeamB", 17, 16)
+        model_blowout.update("TeamA", "TeamB", 42, 7)
+
+        # Assert — same K regardless of margin
+        assert abs(model_close.rating("TeamA") - model_blowout.rating("TeamA")) < 1e-9
+        assert abs(model_close.rating("TeamB") - model_blowout.rating("TeamB")) < 1e-9
+
+    def test_draw_is_unaffected_by_mov(self) -> None:
+        # Arrange — equal teams, draw result, mov=True
+        model = EloModel(home_advantage=0.0, use_mov=True)
+
+        # Act
+        model.update("TeamA", "TeamB", 14, 14)
+
+        # Assert — draw with equal teams gives no rating change
+        assert abs(model.rating("TeamA") - 1500.0) < 1e-9
+        assert abs(model.rating("TeamB") - 1500.0) < 1e-9
+
+    def test_symmetry_preserved_with_mov(self) -> None:
+        # Arrange
+        model = EloModel(home_advantage=0.0, use_mov=True)
+
+        # Act
+        model.update("TeamA", "TeamB", 35, 7)
+
+        # Assert — winner gains exactly what loser drops
+        gain = model.rating("TeamA") - 1500.0
+        loss = 1500.0 - model.rating("TeamB")
+        assert abs(gain - loss) < 1e-9
+
+
 class TestEloPredict:
     def test_predict_returns_probability_estimate(self) -> None:
         model = EloModel()

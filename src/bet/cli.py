@@ -40,6 +40,28 @@ def main() -> None:
     type=int,
     help="Minimum training games before predicting",
 )
+@click.option(
+    "--k-factor",
+    default=20.0,
+    show_default=True,
+    type=float,
+    help="Elo K-factor (rate of rating change per game)",
+)
+@click.option(
+    "--no-mov",
+    "use_mov",
+    is_flag=True,
+    default=True,
+    flag_value=False,
+    help="Disable margin-of-victory scaling (use binary win/loss)",
+)
+@click.option(
+    "--max-odds",
+    default=float("inf"),
+    show_default=True,
+    type=float,
+    help="Skip bets with market odds above this value",
+)
 @click.option("--output", type=click.Path(), default=None)
 def backtest(
     sport: str,
@@ -49,6 +71,9 @@ def backtest(
     bankroll: float,
     kelly_fraction: float,
     min_train: int,
+    k_factor: float,
+    use_mov: bool,
+    max_odds: float,
     output: str | None,
 ) -> None:
     """Run walk-forward backtesting on historical game data."""
@@ -56,8 +81,8 @@ def backtest(
     click.echo(f"Loaded {len(games)} games from {data}")
 
     if model_name == "elo":
-        model = EloModel()
-        extractor = NFLFeatureExtractor()
+        model = EloModel(k_factor=k_factor, use_mov=use_mov)
+        extractor = NFLFeatureExtractor(k_factor=k_factor, use_mov=use_mov)
     else:
         model = PoissonModel()
         extractor = SoccerFeatureExtractor()
@@ -65,7 +90,7 @@ def backtest(
     pipeline = BacktestPipeline(
         model=model,
         extractor=extractor,
-        detector=MinimumEdgeDetector(min_edge=min_edge),
+        detector=MinimumEdgeDetector(min_edge=min_edge, max_odds=max_odds),
         sizer=KellySizer(fraction=kelly_fraction),
         bankroll=bankroll,
         min_train_games=min_train,

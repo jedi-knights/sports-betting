@@ -137,3 +137,37 @@ class TestMinimumEdgeDetectorDetect:
         estimate = _make_estimate(home_win=0.55)
         vb = detector.detect(estimate, [_make_line("home_win", 2.10)])[0]
         assert vb.detected_at == estimate.generated_at
+
+    def test_max_odds_filters_out_bets_above_threshold(self) -> None:
+        # Arrange — model says 0.55 on home at 2.10 odds (EV > 0.02)
+        # but max_odds=2.0 should block it
+        detector = MinimumEdgeDetector(min_edge=0.02, max_odds=2.0)
+        estimate = _make_estimate(home_win=0.55)
+
+        # Act
+        result = detector.detect(estimate, [_make_line("home_win", 2.10)])
+
+        # Assert
+        assert result == []
+
+    def test_max_odds_allows_bets_at_or_below_threshold(self) -> None:
+        # Arrange — home bet at exactly max_odds should be allowed
+        detector = MinimumEdgeDetector(min_edge=0.02, max_odds=2.10)
+        estimate = _make_estimate(home_win=0.55)
+
+        # Act
+        result = detector.detect(estimate, [_make_line("home_win", 2.10)])
+
+        # Assert
+        assert len(result) == 1
+
+    def test_no_max_odds_allows_all_qualifying_bets(self) -> None:
+        # Arrange — default max_odds is infinity; high-odds bet still allowed
+        detector = MinimumEdgeDetector(min_edge=0.02)
+        estimate = _make_estimate(home_win=0.55)
+
+        # Act
+        result = detector.detect(estimate, [_make_line("home_win", 10.0)])
+
+        # Assert — 0.55 × 10.0 − 1 = 4.5 > 0.02, so it should be detected
+        assert len(result) == 1

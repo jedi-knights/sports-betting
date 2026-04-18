@@ -88,7 +88,7 @@ class BacktestPipeline:
 
             try:
                 features = self._extractor.extract(  # type: ignore[union-attr]
-                    train_examples,
+                    test_game.event_id,
                     test_game.home_team,
                     test_game.away_team,
                     as_of=test_game.game_date,
@@ -131,6 +131,7 @@ class BacktestPipeline:
     ) -> None:
         if not hasattr(self._model, "fit_calibrator"):
             self._model.fit(train_examples)
+            self._extractor.fit(train_examples)  # type: ignore[union-attr]
             return
 
         split = max(1, int(len(train_examples) * (1.0 - self._calibration_fraction)))
@@ -138,6 +139,7 @@ class BacktestPipeline:
         cal_games = train_games[split:]
 
         self._model.fit(fit_examples)
+        self._extractor.fit(fit_examples)  # type: ignore[union-attr]
 
         if not cal_games:
             return
@@ -151,8 +153,9 @@ class BacktestPipeline:
             if not earlier:
                 continue
             try:
+                self._extractor.fit(earlier)  # type: ignore[union-attr]
                 fs = self._extractor.extract(  # type: ignore[union-attr]
-                    earlier,
+                    cal_game.event_id,
                     cal_game.home_team,
                     cal_game.away_team,
                     as_of=cal_game.game_date,

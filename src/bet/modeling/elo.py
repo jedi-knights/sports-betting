@@ -8,6 +8,8 @@ effective rating before computing expected scores.
 
 from __future__ import annotations
 
+import math
+
 from .types import FeatureSet, ProbabilityEstimate, TrainingExample
 
 
@@ -32,10 +34,14 @@ class EloModel:
         k_factor: float = 20.0,
         home_advantage: float = 65.0,
         initial_rating: float = 1500.0,
+        use_mov: bool = True,
+        mov_reference: float = 7.0,
     ) -> None:
         self._k_factor = k_factor
         self._home_advantage = home_advantage
         self._initial_rating = initial_rating
+        self._use_mov = use_mov
+        self._mov_reference = mov_reference
         self._ratings: dict[str, float] = {}
 
     def rating(self, team: str) -> float:
@@ -60,6 +66,20 @@ class EloModel:
             Probability in (0, 1) that team A wins.
         """
         return 1.0 / (1.0 + 10.0 ** ((rating_b - rating_a) / 400.0))
+
+    def _mov_multiplier(self, home_score: int, away_score: int) -> float:
+        """Scale K by log margin so blowouts carry more information than squeakers.
+
+        Normalised so that a one-TD (``mov_reference``-point) margin gives
+        multiplier = 1.0. A 1-point win gives ~0.33; a 28-point blowout ~1.62.
+        A draw always returns 1.0 because the margin is 0.
+        """
+        if not self._use_mov:
+            return 1.0
+        margin = abs(home_score - away_score)
+        if margin == 0:
+            return 1.0
+        return math.log(margin + 1) / math.log(self._mov_reference + 1)
 
     def update(
         self,
@@ -91,10 +111,12 @@ class EloModel:
         else:
             actual_home = 0.0
 
-        self._ratings[home_team] = self.rating(home_team) + self._k_factor * (
+        k_eff = self._k_factor * self._mov_multiplier(home_score, away_score)
+
+        self._ratings[home_team] = self.rating(home_team) + k_eff * (
             actual_home - expected_home
         )
-        self._ratings[away_team] = self.rating(away_team) + self._k_factor * (
+        self._ratings[away_team] = self.rating(away_team) + k_eff * (
             (1.0 - actual_home) - (1.0 - expected_home)
         )
 
