@@ -305,9 +305,10 @@ Work through phases in order. Check off each item when complete. Do not advance 
 
 ### Phase 10 — CI and Quality
 
-- [x] Add `.github/workflows/go.yml`: runs `go vet` and `go test ./...` on push and pull requests
-- [x] Add `.github/workflows/python.yml`: runs `ruff check` and `pytest` on push and pull requests
+- [x] Add `.github/workflows/go.yml`: runs `go vet`, `golangci-lint`, and `go test ./...` on push and pull requests
+- [x] Add `.github/workflows/python.yml`: runs `ruff check`, `ruff format --check`, `mypy src/`, and `pytest` on push and pull requests
 - [x] Add `ruff` configuration to `pyproject.toml` (line-length, target Python version, rule set)
+- [x] Add `mypy` configuration to `pyproject.toml` (strict mode, sklearn/scipy overrides)
 
 ---
 
