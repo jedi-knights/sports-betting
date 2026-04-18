@@ -22,14 +22,17 @@ func main() {
 
 	sport := marketdata.Sport(envOr("SPORT", "nfl"))
 	season := envOr("SEASON", "2024")
-	dataPath := envOr("DATA_PATH", "/data/odds.csv")
+	dataPath := envOr("DATA_PATH", "/data/odds.json")
 	addr := envOr("ADDR", ":8080")
 	pollInterval := durationEnv("POLL_INTERVAL_SECONDS", 60)
 
-	provider, err := marketdata.NewStaticOddsProvider(dataPath)
-	if err != nil {
-		logger.Error("loading odds provider", "path", dataPath, "error", err)
-		os.Exit(1)
+	var provider marketdata.OddsProvider
+	if p, err := marketdata.NewStaticOddsProvider(dataPath); err != nil {
+		logger.Warn("static odds file unavailable, starting with null provider", "path", dataPath, "error", err)
+		provider = marketdata.NullOddsProvider{}
+	} else {
+		provider = p
+		logger.Info("using static odds provider", "path", dataPath)
 	}
 
 	store := marketdata.NewMemoryLineStore()

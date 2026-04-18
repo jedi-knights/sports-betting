@@ -101,7 +101,7 @@ All configuration is read from environment variables. Copy `.env.example` to `.e
 | `POSTGRES_DB` | `sportsbetting` | Database name |
 | `POSTGRES_USER` | `sportsbetting` | Database user |
 | `POSTGRES_PASSWORD` | `changeme` | Database password |
-| `POSTGRES_PORT` | `5432` | Exposed port on the host |
+| `POSTGRES_PORT` | `5433` | Exposed port on the host |
 | `PAPER_TRADE_MIN_EDGE` | `0.03` | Minimum edge (3%) before recording a paper bet |
 | `PAPER_TRADE_KELLY_FRACTION` | `0.25` | Kelly fraction for paper bet sizing |
 | `PAPER_TRADE_STARTING_BANKROLL` | `10000` | Starting paper bankroll in USD |

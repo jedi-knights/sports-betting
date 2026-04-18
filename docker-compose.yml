@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-sportsbetting}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -22,8 +22,9 @@ services:
     environment:
       SPORT: ${SPORT:-nfl}
       SEASON: ${SEASON:-2024}
-      DATA_PATH: /data/odds.csv
+      DATA_PATH: /data/odds.json
       POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-60}
+      ODDS_API_KEY: ${ODDS_API_KEY}
     volumes:
       - market_data:/data
     depends_on:
@@ -38,7 +39,7 @@ services:
     environment:
       SPORT: ${SPORT:-nfl}
       SEASON: ${SEASON:-2024}
-      DATA_PATH: /data/odds.csv
+      DATA_PATH: /data/odds.json
       POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-60}
       ADDR: :8080
     ports:

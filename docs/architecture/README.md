@@ -185,7 +185,7 @@ Work through phases in order. Check off each item when complete. Do not advance 
 - [x] Create `docker-compose.yml` at repository root with a PostgreSQL service and named volume
 - [x] Declare `postgres_data` named volume in `docker-compose.yml` for database persistence
 - [x] Add PostgreSQL healthcheck so dependent services wait for readiness
-- [ ] Verify `docker compose up` starts Postgres and persists data across `docker compose down` / `up` cycles
+- [x] Verify `docker compose up` starts Postgres and persists data across `docker compose down` / `up` cycles
 
 **Market Data domain**
 - [x] Define odds format types in Go: `AmericanOdds`, `DecimalOdds`, `FractionalOdds`, `ImpliedProbability`
@@ -284,7 +284,7 @@ Work through phases in order. Check off each item when complete. Do not advance 
 - [x] Add `market-data` and `paper-trade` services to `docker-compose.yml`
 - [x] Declare named volume for `LineStore` persistence (if file-based) or wire to Postgres
 - [x] Declare named volume for `BetStore` persistence
-- [ ] Verify `docker compose up` brings up the full stack; data survives `down` / `up`
+- [x] Verify `docker compose up` brings up the full stack; data survives `down` / `up`
 
 ### Phase 9 — Live Execution *(after paper trading is validated)*
 

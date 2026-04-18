@@ -28,11 +28,12 @@ func main() {
 		dataPath := envOr("DATA_PATH", "/data/odds.json")
 		p, err := marketdata.NewStaticOddsProvider(dataPath)
 		if err != nil {
-			logger.Error("loading static odds provider", "path", dataPath, "error", err)
-			os.Exit(1)
+			logger.Warn("static odds file unavailable, starting with null provider", "path", dataPath, "error", err)
+			provider = marketdata.NullOddsProvider{}
+		} else {
+			provider = p
+			logger.Info("using static odds provider", "path", dataPath)
 		}
-		provider = p
-		logger.Info("using static odds provider", "path", dataPath)
 	}
 	store := marketdata.NewMemoryLineStore()
 
