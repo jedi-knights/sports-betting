@@ -378,6 +378,74 @@ A `BACKTEST_RUN` produces `BET` records (mode = `backtest`) and a `PERFORMANCE_R
 
 ---
 
+## Simulated Bookmaker
+
+A concrete implementation of the `BookmakerClient` interface used during paper trading. Its purpose is to exercise the full live pipeline — bet placement, line movement, account limits, and partial fills — without real money and without depending on an external API. By the time a real bookmaker adapter is written in Phase 9, every edge case the live pipeline might encounter has already been validated against this implementation.
+
+The simulated bookmaker is intentionally adversarial: it moves lines after bets, rejects stale requests, and limits accounts that win consistently — matching how real books behave.
+
+```mermaid
+erDiagram
+    SIMULATED_BOOK_CONFIG {
+        string id
+        string name
+        float  margin
+        float  max_stake
+        float  starting_balance
+        int    bets_before_limit
+        float  line_movement_factor
+    }
+    SIMULATED_ACCOUNT {
+        string  book_config_id
+        float   balance
+        float   reserved
+        boolean is_limited
+        int     winning_bets
+    }
+    SIMULATED_BET_OFFER {
+        string    id
+        string    line_id
+        float     offered_odds
+        float     max_stake
+        string    status
+        timestamp expires_at
+    }
+    SIMULATED_BET_FILL {
+        string id
+        string offer_id
+        float  requested_stake
+        float  accepted_stake
+        float  final_odds
+        string result
+    }
+
+    SIMULATED_BOOK_CONFIG ||--||  SIMULATED_ACCOUNT    : "has"
+    SIMULATED_BOOK_CONFIG ||--o{  SIMULATED_BET_OFFER  : "generates"
+    SIMULATED_BET_OFFER   ||--o|  SIMULATED_BET_FILL   : "results in"
+```
+
+| Entity | Field | Note |
+|--------|-------|------|
+| SIMULATED_BOOK_CONFIG | margin | Overround added to odds; e.g. `0.05` means the book's implied probabilities sum to 1.05 — simulates the vig |
+| SIMULATED_BOOK_CONFIG | max_stake | Maximum stake the book will accept on a single bet before applying limits |
+| SIMULATED_BOOK_CONFIG | bets_before_limit | After this many resolved winning bets, `max_stake` is cut to simulate account profiling |
+| SIMULATED_BOOK_CONFIG | line_movement_factor | How much the offered odds shift after each accepted bet; simulates market impact of placing money |
+| SIMULATED_ACCOUNT | reserved | Funds held against open (unresolved) bets; `available = balance − reserved` |
+| SIMULATED_ACCOUNT | is_limited | Once true, `max_stake` is reduced to a small fraction — mirrors real book behaviour toward profitable accounts |
+| SIMULATED_BET_OFFER | status | One of: `available`, `expired`, `taken`; offers expire if not acted on within the window |
+| SIMULATED_BET_OFFER | offered_odds | May differ from the originally requested odds if the line has already moved |
+| SIMULATED_BET_FILL | accepted_stake | May be less than `requested_stake` if the request exceeded `max_stake` (partial fill) |
+| SIMULATED_BET_FILL | result | One of: `accepted`, `rejected`, `partial`, `line_moved`; `line_moved` means odds changed between offer and fill |
+
+**Behaviours the simulated bookmaker exercises**
+
+- **Line movement** — after each accepted bet, offered odds shift by `line_movement_factor × stake`; subsequent requests see the moved line
+- **Bet rejection** — a bet placed on an expired offer or a line that has already moved returns result `line_moved`
+- **Partial fills** — stakes above `max_stake` are accepted at `max_stake`; the remainder is returned unfilled
+- **Account limiting** — after `bets_before_limit` winning bets, `max_stake` drops to a configurable floor; mirrors the most common friction point in live execution
+
+---
+
 ## Cross-Context Data Flow
 
 ```

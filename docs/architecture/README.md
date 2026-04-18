@@ -262,14 +262,21 @@ Work through phases in order. Check off each item when complete. Do not advance 
 
 ### Phase 8 — Paper Trading *(after backtesting is validated)*
 
+**Simulated Bookmaker**
+- [ ] Define `SimulatedBookmakerClient` implementing the `BookmakerClient` interface
+- [ ] Implement configurable margin: apply overround to all offered odds
+- [ ] Implement line movement: shift offered odds after each accepted bet proportional to stake size
+- [ ] Implement bet rejection: reject bets placed on expired offers or lines that have moved since the offer
+- [ ] Implement partial fills: cap accepted stake at configured `max_stake`; return remainder unfilled
+- [ ] Implement account limiting: after N winning bets, reduce `max_stake` to a floor value
+- [ ] Unit tests for each simulated behaviour (movement, rejection, partial fill, limiting)
+
 **Go services**
 - [ ] Implement Go service: `market-data` — polls `OddsProvider` on a schedule, stores in `LineStore`
-- [ ] Implement Go service: `paper-trade` — runs value detection on live odds, records paper bets
-- [ ] Implement `BookmakerClient` interface (Go): the primary integration point for live odds
-- [ ] Implement mock `BookmakerClient` returning fixture odds for local testing
+- [ ] Implement Go service: `paper-trade` — wires `SimulatedBookmakerClient` into the full pipeline; records paper bets
 - [ ] Expose REST API: `GET /paper/bets`, `GET /paper/performance`
 - [ ] Implement CLI command: `bet paper-trade --sport nfl` (connects to the Go service)
-- [ ] Integration test: full paper trading loop with mock bookmaker client
+- [ ] Integration test: full paper trading loop end-to-end with `SimulatedBookmakerClient`
 
 **Containerization**
 - [ ] Write `services/market-data/Dockerfile` (multi-stage: builder + distroless)
