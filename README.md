@@ -5,6 +5,7 @@ General purpose code and documentation for building, evaluating, and applying sp
 ## Table of Contents
 
 - [Overview](#overview)
+- [Documentation](#documentation)
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -17,6 +18,20 @@ General purpose code and documentation for building, evaluating, and applying sp
 ## Overview
 
 This repository houses research, implementations, and tooling for sports betting models. The core goal is identifying mispriced odds by comparing model-estimated probabilities against bookmaker-implied probabilities — a technique known as value betting. Modern calibration research shows that optimizing for probability calibration rather than raw accuracy produces significantly higher returns: calibration-focused models have demonstrated +34.69% returns versus -35.17% for accuracy-only approaches.
+
+## Documentation
+
+All research and reference material lives under [`docs/`](docs/). Start with the [Glossary](docs/glossary.md) for term definitions, then follow the section reading order below.
+
+| Section | Description |
+|---------|-------------|
+| [Foundations](docs/foundations/README.md) | Core concepts: odds formats, value betting, market efficiency, variance, psychology |
+| [Modeling](docs/modeling/README.md) | Building and evaluating models: calibration, backtesting, features, weather, Monte Carlo |
+| [Modeling — Models](docs/modeling/models/README.md) | Model deep-dives: Poisson, Elo, logistic regression, quantile regression, ML methods |
+| [Strategy](docs/strategy/README.md) | Execution: bankroll management, line shopping, props, arbitrage, hedging, playoff modeling |
+| [Sport-Specific](docs/sport-specific/README.md) | Per-sport guides: NFL, NBA, MLB, NHL, Soccer |
+
+**Recommended starting point for newcomers:** [Foundations → Odds and Markets](docs/foundations/odds-and-markets.md)
 
 ## Features
 
