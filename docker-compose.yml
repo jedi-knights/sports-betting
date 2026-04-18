@@ -20,7 +20,7 @@ services:
       context: .
       dockerfile: services/market-data/Dockerfile
     environment:
-      SPORT: ${SPORT:-nba}
+      SPORT: ${SPORT:-nba,nfl,mlb,nhl}
       SEASON: ${SEASON:-2026}
       DATA_PATH: /data/odds.json
       POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-60}

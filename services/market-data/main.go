@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -27,7 +28,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	sport := marketdata.Sport(envOr("SPORT", "nfl"))
+	sports := parseSports(os.Getenv("SPORT"))
 	season := envOr("SEASON", "2024")
 	pollInterval := durationEnv("POLL_INTERVAL_SECONDS", 60)
 	httpAddr := envOr("ADDR", ":8081")
@@ -88,7 +89,7 @@ func main() {
 	}()
 
 	logger.Info("market-data service starting",
-		"sport", sport,
+		"sports", sports,
 		"season", season,
 		"poll_interval", pollInterval,
 	)
@@ -96,11 +97,11 @@ func main() {
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
-	poll(ctx, logger, provider, store, sport, season)
+	pollAll(ctx, logger, provider, store, sports, season)
 	for {
 		select {
 		case <-ticker.C:
-			poll(ctx, logger, provider, store, sport, season)
+			pollAll(ctx, logger, provider, store, sports, season)
 		case <-ctx.Done():
 			logger.Info("market-data service shutting down")
 			grpcSrv.GracefulStop()
@@ -123,6 +124,40 @@ func buildLineStore(ctx context.Context, logger *slog.Logger) (marketdata.LineSt
 	}
 	logger.Warn("DATABASE_URL not set — using in-memory line store (data will not persist)")
 	return marketdata.NewMemoryLineStore(), nil
+}
+
+// parseSports parses a comma-separated list of sport slugs (e.g. "nba,nfl") into
+// a slice of Sport values.  Whitespace around each entry is trimmed.  An empty
+// string returns the default of [SportNFL].
+func parseSports(raw string) []marketdata.Sport {
+	if raw == "" {
+		return []marketdata.Sport{marketdata.SportNFL}
+	}
+	parts := strings.Split(raw, ",")
+	sports := make([]marketdata.Sport, 0, len(parts))
+	for _, p := range parts {
+		if s := strings.TrimSpace(p); s != "" {
+			sports = append(sports, marketdata.Sport(s))
+		}
+	}
+	if len(sports) == 0 {
+		return []marketdata.Sport{marketdata.SportNFL}
+	}
+	return sports
+}
+
+// pollAll runs a poll cycle for every configured sport in sequence.
+func pollAll(
+	ctx context.Context,
+	logger *slog.Logger,
+	provider marketdata.OddsProvider,
+	store marketdata.LineStore,
+	sports []marketdata.Sport,
+	season string,
+) {
+	for _, sport := range sports {
+		poll(ctx, logger, provider, store, sport, season)
+	}
 }
 
 func poll(
