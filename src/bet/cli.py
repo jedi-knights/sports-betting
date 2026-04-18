@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 from dataclasses import asdict
 
 import click
 
 from .backtesting.loader import CSVDataLoader
 from .backtesting.pipeline import BacktestPipeline
+from .calibration.isotonic import IsotonicCalibrator
+from .calibration.metrics import brier_score, expected_calibration_error, log_loss
+from .calibration.model import CalibratedModel
 from .features.mlb import MLBFeatureExtractor
 from .features.nba import NBAFeatureExtractor
 from .features.nfl import NFLFeatureExtractor
@@ -20,12 +24,13 @@ from .modeling.ensemble import EnsembleModel
 from .modeling.gradient_boosting import GradientBoostingModel
 from .modeling.logistic import LogisticRegressionModel
 from .modeling.poisson import PoissonModel
+from .modeling.protocols import FeatureExtractor, Model
 from .modeling.quantile import QuantileRegressionModel
 from .sizing.kelly import KellySizer
 from .tracking.metrics import compute_performance_report
 from .value.detector import MinimumEdgeDetector
 
-_EXTRACTOR_FACTORIES = {
+_EXTRACTOR_FACTORIES: dict[str, Callable[[float, bool], FeatureExtractor]] = {
     "nfl": lambda k, mov: NFLFeatureExtractor(k_factor=k, use_mov=mov),
     "nba": lambda k, mov: NBAFeatureExtractor(k_factor=k, use_mov=mov),
     "mlb": lambda k, mov: MLBFeatureExtractor(k_factor=k, use_mov=mov),
@@ -34,21 +39,26 @@ _EXTRACTOR_FACTORIES = {
 }
 
 
+def _maybe_calibrate(model: Model, calibrate: bool = True) -> Model:
+    """Wrap model in CalibratedModel(IsotonicCalibrator) when calibrate is True."""
+    if not calibrate:
+        return model
+    return CalibratedModel(model, IsotonicCalibrator())
+
+
 def _build_model_and_extractor(
     sport: str,
     model_name: str,
     k_factor: float,
     use_mov: bool,
-) -> tuple:
+) -> tuple[Model, FeatureExtractor]:
     extractor = _EXTRACTOR_FACTORIES[sport](k_factor, use_mov)
 
     if sport == "soccer" and model_name == "poisson":
         return PoissonModel(), extractor
 
-    elo = lambda: EloModel(k_factor=k_factor, use_mov=use_mov)  # noqa: E731
-
     if model_name == "elo":
-        return elo(), extractor
+        return EloModel(k_factor=k_factor, use_mov=use_mov), extractor
     if model_name == "logistic":
         return LogisticRegressionModel(), extractor
     if model_name == "gradient_boosting":
@@ -56,7 +66,12 @@ def _build_model_and_extractor(
     if model_name == "quantile":
         return QuantileRegressionModel(), extractor
     if model_name == "ensemble":
-        return EnsembleModel([elo(), LogisticRegressionModel()]), extractor
+        return (
+            EnsembleModel(
+                [EloModel(k_factor=k_factor, use_mov=use_mov), LogisticRegressionModel()]
+            ),
+            extractor,
+        )
     # poisson is only valid for soccer and handled above
     return PoissonModel(), extractor
 
@@ -112,6 +127,12 @@ def main() -> None:
     help="Skip bets with market odds above this value",
 )
 @click.option("--output", type=click.Path(), default=None)
+@click.option(
+    "--calibrate/--no-calibrate",
+    default=True,
+    show_default=True,
+    help="Wrap model in isotonic calibration (recommended; matches architecture spec)",
+)
 def backtest(
     sport: str,
     data: str,
@@ -124,12 +145,14 @@ def backtest(
     use_mov: bool,
     max_odds: float,
     output: str | None,
+    calibrate: bool,
 ) -> None:
     """Run walk-forward backtesting on historical game data."""
     games = CSVDataLoader().load(data)
     click.echo(f"Loaded {len(games)} games from {data}")
 
     model, extractor = _build_model_and_extractor(sport, model_name, k_factor, use_mov)
+    model = _maybe_calibrate(model, calibrate=calibrate)
 
     pipeline = BacktestPipeline(
         model=model,
@@ -159,6 +182,79 @@ def backtest(
 
     if output:
         report_dict = asdict(report)
+        with open(output, "w") as f:
+            json.dump(report_dict, f, indent=2)
+        click.echo(f"\nReport written to {output}")
+
+    sys.exit(0)
+
+
+@main.command()
+@click.option(
+    "--sport",
+    required=True,
+    type=click.Choice(["nfl", "nba", "mlb", "nhl", "soccer"]),
+)
+@click.option("--data", required=True, type=click.Path(exists=True))
+@click.option(
+    "--model",
+    "model_name",
+    default="elo",
+    type=click.Choice(["elo", "logistic", "poisson", "gradient_boosting", "quantile", "ensemble"]),
+)
+@click.option("--min-train", default=20, show_default=True, type=int)
+@click.option("--k-factor", default=20.0, show_default=True, type=float)
+@click.option(
+    "--no-mov",
+    "use_mov",
+    is_flag=True,
+    default=True,
+    flag_value=False,
+)
+@click.option("--output", type=click.Path(), default=None)
+def calibrate(
+    sport: str,
+    data: str,
+    model_name: str,
+    min_train: int,
+    k_factor: float,
+    use_mov: bool,
+    output: str | None,
+) -> None:
+    """Evaluate model calibration quality: Brier score, log-loss, and ECE."""
+    games = CSVDataLoader().load(data)
+    click.echo(f"Loaded {len(games)} games from {data}")
+
+    model, extractor = _build_model_and_extractor(sport, model_name, k_factor, use_mov)
+
+    pipeline = BacktestPipeline(
+        model=model,
+        extractor=extractor,
+        detector=MinimumEdgeDetector(min_edge=0.0),
+        sizer=KellySizer(fraction=0.25),
+        bankroll=1000.0,
+        min_train_games=min_train,
+    )
+
+    results = pipeline.run(games)
+    if not results:
+        click.echo("No predictions generated — try reducing --min-train or providing more data.")
+        sys.exit(1)
+
+    probs = [r.model_prob for r in results]
+    outcomes = [1 if r.won else 0 for r in results]
+
+    bs = brier_score(probs, outcomes)
+    ll = log_loss(probs, outcomes)
+    ece = expected_calibration_error(probs, outcomes)
+
+    click.echo(f"\nCalibration report — {len(results)} predictions")
+    click.echo(f"  Brier score : {bs:.4f}  (0 = perfect, 0.25 = random)")
+    click.echo(f"  Log loss    : {ll:.4f}  (lower is better)")
+    click.echo(f"  ECE         : {ece:.4f}  (0 = perfect calibration)")
+
+    if output:
+        report_dict = {"n_predictions": len(results), "brier_score": bs, "log_loss": ll, "ece": ece}
         with open(output, "w") as f:
             json.dump(report_dict, f, indent=2)
         click.echo(f"\nReport written to {output}")

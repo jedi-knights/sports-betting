@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..modeling.protocols import Model
+from ..modeling.protocols import FeatureExtractor, Model
 from ..modeling.types import ActualOutcome, FeatureSet, TrainingExample
 from ..sizing.protocols import Sizer
 from ..tracking.types import BetResult
@@ -12,7 +12,7 @@ from .guard import assert_no_lookahead
 from .types import HistoricalGame
 
 
-def _weather_kwargs(game: HistoricalGame) -> dict:
+def _weather_kwargs(game: HistoricalGame) -> dict[str, object]:
     """Build keyword-argument dict of weather data from a HistoricalGame.
 
     Only populates keys whose values are present so callers that accept
@@ -25,7 +25,7 @@ def _weather_kwargs(game: HistoricalGame) -> dict:
         Dict with zero or more of ``temperature``, ``wind_mph``,
         ``precipitation`` depending on what the game record carries.
     """
-    kwargs: dict = {}
+    kwargs: dict[str, object] = {}
     if game.temperature is not None:
         kwargs["temperature"] = game.temperature
     if game.wind_mph is not None:
@@ -67,7 +67,7 @@ class BacktestPipeline:
     def __init__(
         self,
         model: Model,
-        extractor: object,
+        extractor: FeatureExtractor,
         detector: MinimumEdgeDetector,
         sizer: Sizer,
         bankroll: float = 1000.0,
@@ -111,7 +111,7 @@ class BacktestPipeline:
 
             try:
                 weather = _weather_kwargs(test_game)
-                features = self._extractor.extract(  # type: ignore[union-attr]
+                features = self._extractor.extract(
                     test_game.event_id,
                     test_game.home_team,
                     test_game.away_team,
@@ -157,7 +157,7 @@ class BacktestPipeline:
         game_lookup = {g.event_id: g for g in train_games}
 
         if not hasattr(self._model, "fit_calibrator"):
-            self._extractor.fit(train_examples)  # type: ignore[union-attr]
+            self._extractor.fit(train_examples)
             feature_examples = self._populate_features(train_examples, game_lookup)
             self._model.fit(feature_examples or train_examples)
             return
@@ -166,7 +166,7 @@ class BacktestPipeline:
         fit_examples = train_examples[:split]
         cal_games = train_games[split:]
 
-        self._extractor.fit(fit_examples)  # type: ignore[union-attr]
+        self._extractor.fit(fit_examples)
         populated = self._populate_features(fit_examples, game_lookup)
         self._model.fit(populated or fit_examples)
 
@@ -180,23 +180,23 @@ class BacktestPipeline:
             if not earlier:
                 continue
             try:
-                self._extractor.fit(earlier)  # type: ignore[union-attr]
+                self._extractor.fit(earlier)
                 cal_weather = _weather_kwargs(cal_game)
-                fs = self._extractor.extract(  # type: ignore[union-attr]
+                fs = self._extractor.extract(
                     cal_game.event_id,
                     cal_game.home_team,
                     cal_game.away_team,
                     as_of=cal_game.game_date,
                     **cal_weather,
                 )
-                raw = self._model.predict_raw(fs)  # type: ignore[union-attr]
+                raw = self._model.predict_raw(fs)  # type: ignore[attr-defined]
                 probs.append(raw.home_win)
                 outcomes.append(1 if cal_game.home_score > cal_game.away_score else 0)
             except Exception:
                 continue
 
         if len(probs) >= 2:
-            self._model.fit_calibrator(probs, outcomes)  # type: ignore[union-attr]
+            self._model.fit_calibrator(probs, outcomes)
 
     def _populate_features(
         self,
@@ -221,7 +221,7 @@ class BacktestPipeline:
             try:
                 game = (game_lookup or {}).get(ex.feature_set.event_id)
                 weather = _weather_kwargs(game) if game is not None else {}
-                fs = self._extractor.extract(  # type: ignore[union-attr]
+                fs = self._extractor.extract(
                     ex.feature_set.event_id,
                     ex.feature_set.home_team,
                     ex.feature_set.away_team,
@@ -291,6 +291,7 @@ def _bet_won(side: str, game: HistoricalGame) -> bool:
 
 
 def _compute_clv(side: str, bet_odds: float, game: HistoricalGame) -> float | None:
+    closing: float | None
     if side == "home_win":
         closing = game.closing_home_win_odds
     elif side == "away_win":

@@ -65,7 +65,7 @@ class EloModel:
         Returns:
             Probability in (0, 1) that team A wins.
         """
-        return 1.0 / (1.0 + 10.0 ** ((rating_b - rating_a) / 400.0))
+        return float(1.0 / (1.0 + 10.0 ** ((rating_b - rating_a) / 400.0)))
 
     def _mov_multiplier(self, home_score: int, away_score: int) -> float:
         """Scale K by log margin so blowouts carry more information than squeakers.

@@ -16,6 +16,9 @@ from .types import FeatureSet, ProbabilityEstimate, TrainingExample
 class Model(Protocol):
     """Predictive model: fits on historical data, returns probability estimates."""
 
+    @property
+    def model_id(self) -> str: ...
+
     def fit(self, examples: list[TrainingExample]) -> None:
         """Train or update the model using a list of labelled historical games.
 
