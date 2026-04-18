@@ -6,6 +6,38 @@ Each context owns its entities. When a context needs data from another context i
 
 ---
 
+## How to Read These Diagrams
+
+Each diagram uses **crow's foot notation** to show how entities relate to one another. The symbols on each end of a connecting line describe how many of one thing can be associated with one of the other thing.
+
+| Symbol (end of line) | Meaning |
+|----------------------|---------|
+| `\|\|` — a single vertical bar | Exactly one |
+| `o\|` — a circle and a bar | Zero or one (optional) |
+| `\}` or `{` — a crow's foot | Zero or more (many) |
+| `\|{` — a bar and a crow's foot | One or more (at least one) |
+
+Read a relationship left-to-right using both ends together:
+
+```mermaid
+erDiagram
+    EVENT ||--|{ MARKET : "has"
+    MARKET ||--o{ LINE : "has"
+    BOOK ||--o{ LINE : "prices"
+    BET ||--|| BET_RESULT : "resolved as"
+```
+
+| Relationship | How to read it |
+|---|---|
+| `EVENT \|\|--\|{ MARKET` | One event has one or more markets (a game always has at least a moneyline) |
+| `MARKET \|\|--o{ LINE` | One market has zero or more lines (a market may exist before any book has priced it) |
+| `BOOK \|\|--o{ LINE` | One book prices zero or more lines (a book may not cover every market) |
+| `BET \|\|--\|\| BET_RESULT` | One bet resolves to exactly one result |
+
+The label in the middle (e.g., `"has"`, `"prices"`) describes the nature of the relationship in plain language. The crow's foot end always points at the "many" side.
+
+---
+
 ## Market Data
 
 The foundational context. Every other context either reads from Market Data or produces data that eventually flows back into it (e.g., closing lines resolving value bets).
