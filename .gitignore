@@ -1,0 +1,36 @@
+# Local data — persisted outside Docker volumes for development use
+# Never commit raw data, exports, or fixture CSVs
+data/
+tmp/
+
+# Secrets — use .env.example to document required variables
+.env
+*.env
+!.env.example
+
+# Go build artifacts
+/bin/
+*.exe
+*.test
+*.out
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.ruff_cache/
+.mypy_cache/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp

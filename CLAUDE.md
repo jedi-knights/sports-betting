@@ -26,6 +26,38 @@ Always read the glossary file first. Never answer a "what is" question in this r
 
 This is a research and tooling repository for sports betting models. The owner is new to the field. When writing documentation, explain concepts clearly and define terms — do not assume prior knowledge of sports betting, statistics, or machine learning.
 
+## Docker & Infrastructure Conventions
+
+All backend services (Go) are containerized. Follow these rules consistently:
+
+### Dockerfiles
+- Every Go service has its own `Dockerfile` at `services/<name>/Dockerfile`
+- Use multi-stage builds: a `builder` stage compiles the binary; a minimal `scratch` or `gcr.io/distroless/static` stage runs it
+- No secrets, credentials, or data files are ever copied into an image
+
+### docker-compose.yml
+- A single `docker-compose.yml` at the repository root orchestrates all services and infrastructure
+- Infrastructure services (PostgreSQL, etc.) are always defined here alongside the application services
+- `docker compose up` must bring up the complete local development stack without additional steps
+- Services that depend on the database declare `depends_on` with a `condition: service_healthy` healthcheck
+
+### Data Persistence
+- All persistent data (database files, file-based stores) uses **named Docker volumes**, never bind-mounted project directories
+- Named volumes are declared in the `volumes:` block of `docker-compose.yml`
+- Named volumes persist across `docker compose down` but are removed with `docker compose down -v` (document this clearly in README)
+- The `data/` directory at the repository root is gitignored and may be used for local development exports, fixture CSVs, and test data — it is never mounted into a container
+
+### Secrets and Environment
+- `.env` files are gitignored — never commit them
+- `.env.example` at the repository root documents every required environment variable with a placeholder value and a comment explaining its purpose
+- Services read configuration exclusively from environment variables; no hardcoded credentials anywhere
+
+### What is Never Committed
+- `.env` and any `*.env` variant
+- `data/` directory contents
+- Database dumps or exports
+- Container build artifacts
+
 ## Docs Structure
 
 ```

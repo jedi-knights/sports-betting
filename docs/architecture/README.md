@@ -175,8 +175,19 @@ Work through phases in order. Check off each item when complete. Do not advance 
 
 ### Phase 1 — Foundation & Market Data
 
+**Project scaffold**
 - [ ] Initialize Go module (`go.mod`) at repository root
 - [ ] Initialize Python project (`pyproject.toml` + `uv`) for CLI tooling
+- [ ] Create `.gitignore` covering: `data/`, `.env`, `*.env`, build artifacts, `__pycache__`, `.venv`
+- [ ] Create `.env.example` documenting all required environment variables with placeholder values
+
+**Infrastructure (Docker)**
+- [ ] Create `docker-compose.yml` at repository root with a PostgreSQL service and named volume
+- [ ] Declare `postgres_data` named volume in `docker-compose.yml` for database persistence
+- [ ] Add PostgreSQL healthcheck so dependent services wait for readiness
+- [ ] Verify `docker compose up` starts Postgres and persists data across `docker compose down` / `up` cycles
+
+**Market Data domain**
 - [ ] Define odds format types in Go: `AmericanOdds`, `DecimalOdds`, `FractionalOdds`, `ImpliedProbability`
 - [ ] Implement odds conversion functions: American → Decimal → Implied Probability → Decimal
 - [ ] Define `Market`, `Line`, `Book`, `Odds` domain types in Go
@@ -251,6 +262,7 @@ Work through phases in order. Check off each item when complete. Do not advance 
 
 ### Phase 8 — Paper Trading *(after backtesting is validated)*
 
+**Go services**
 - [ ] Implement Go service: `market-data` — polls `OddsProvider` on a schedule, stores in `LineStore`
 - [ ] Implement Go service: `paper-trade` — runs value detection on live odds, records paper bets
 - [ ] Implement `BookmakerClient` interface (Go): the primary integration point for live odds
@@ -258,6 +270,14 @@ Work through phases in order. Check off each item when complete. Do not advance 
 - [ ] Expose REST API: `GET /paper/bets`, `GET /paper/performance`
 - [ ] Implement CLI command: `bet paper-trade --sport nfl` (connects to the Go service)
 - [ ] Integration test: full paper trading loop with mock bookmaker client
+
+**Containerization**
+- [ ] Write `services/market-data/Dockerfile` (multi-stage: builder + distroless)
+- [ ] Write `services/paper-trade/Dockerfile` (multi-stage: builder + distroless)
+- [ ] Add `market-data` and `paper-trade` services to `docker-compose.yml`
+- [ ] Declare named volume for `LineStore` persistence (if file-based) or wire to Postgres
+- [ ] Declare named volume for `BetStore` persistence
+- [ ] Verify `docker compose up` brings up the full stack; data survives `down` / `up`
 
 ### Phase 9 — Live Execution *(after paper trading is validated)*
 
