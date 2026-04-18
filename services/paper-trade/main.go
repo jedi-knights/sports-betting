@@ -1,10 +1,12 @@
-// Command paper-trade runs the full betting pipeline against a SimulatedBookmakerClient,
-// records paper bets, and exposes a REST API for monitoring open positions and performance.
+// Command paper-trade evaluates lines written by market-data into the shared LineStore,
+// runs them through a SimulatedBookmakerClient, records paper bets, and exposes a REST
+// API for monitoring open positions and performance.
 package main
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -20,22 +22,21 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	sport := marketdata.Sport(envOr("SPORT", "nfl"))
-	season := envOr("SEASON", "2024")
-	dataPath := envOr("DATA_PATH", "/data/odds.json")
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	addr := envOr("ADDR", ":8080")
 	pollInterval := durationEnv("POLL_INTERVAL_SECONDS", 60)
 
-	var provider marketdata.OddsProvider
-	if p, err := marketdata.NewStaticOddsProvider(dataPath); err != nil {
-		logger.Warn("static odds file unavailable, starting with null provider", "path", dataPath, "error", err)
-		provider = marketdata.NullOddsProvider{}
-	} else {
-		provider = p
-		logger.Info("using static odds provider", "path", dataPath)
+	lineStore, err := buildLineStore(ctx, logger)
+	if err != nil {
+		logger.Error("building line store", "error", err)
+		os.Exit(1)
+	}
+	if closer, ok := lineStore.(interface{ Close() }); ok {
+		defer closer.Close()
 	}
 
-	store := marketdata.NewMemoryLineStore()
 	betStore := bettracking.NewMemoryBetStore()
 	book := bookmaker.NewSimulatedBookmakerClient(
 		bookmaker.WithMargin(0.05),
@@ -44,13 +45,10 @@ func main() {
 	)
 
 	svc := &paperTradeService{
-		logger:   logger,
-		provider: provider,
-		store:    store,
-		betStore: betStore,
-		book:     book,
-		sport:    sport,
-		season:   season,
+		logger:    logger,
+		lineStore: lineStore,
+		betStore:  betStore,
+		book:      book,
 	}
 
 	mux := http.NewServeMux()
@@ -63,9 +61,6 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	go func() {
 		logger.Info("paper-trade service listening", "addr", addr)
@@ -93,53 +88,50 @@ func main() {
 }
 
 type paperTradeService struct {
-	logger   *slog.Logger
-	provider marketdata.OddsProvider
-	store    marketdata.LineStore
-	betStore bettracking.BetStore
-	book     *bookmaker.SimulatedBookmakerClient
-	sport    marketdata.Sport
-	season   string
+	logger    *slog.Logger
+	lineStore marketdata.LineStore
+	betStore  bettracking.BetStore
+	book      *bookmaker.SimulatedBookmakerClient
 }
 
 func (s *paperTradeService) poll(ctx context.Context) {
-	events, err := s.provider.Events(ctx, s.sport, s.season)
+	marketIDs, err := s.lineStore.Markets(ctx)
 	if err != nil {
-		s.logger.Error("fetching events", "error", err)
+		s.logger.Error("fetching markets from line store", "error", err)
 		return
 	}
-	for _, ev := range events {
-		markets, err := s.provider.Markets(ctx, ev.ID)
+	for _, marketID := range marketIDs {
+		lines, err := s.lineStore.Lines(ctx, marketID)
 		if err != nil {
-			s.logger.Error("fetching markets", "event_id", ev.ID, "error", err)
+			s.logger.Error("fetching lines", "market_id", marketID, "error", err)
 			continue
 		}
-		for _, mkt := range markets {
-			lines, err := s.provider.Lines(ctx, mkt.ID)
-			if err != nil {
-				s.logger.Error("fetching lines", "market_id", mkt.ID, "error", err)
-				continue
-			}
-			if err := s.store.SaveLines(ctx, lines); err != nil {
-				s.logger.Error("saving lines", "market_id", mkt.ID, "error", err)
-			}
-			s.evaluateMarket(ctx, mkt, lines)
+		if len(lines) == 0 {
+			continue
 		}
+		s.evaluateMarket(ctx, marketID, lines)
 	}
+	s.logger.Info("paper trade poll complete", "markets", len(marketIDs))
 }
 
-func (s *paperTradeService) evaluateMarket(ctx context.Context, mkt marketdata.Market, lines []marketdata.Line) {
-	for _, line := range lines {
-		s.book.SetMarket(mkt.ID, string(line.Side), line.ImpliedProb)
+func (s *paperTradeService) evaluateMarket(ctx context.Context, marketID string, lines []marketdata.Line) {
+	// EventID is denormalized onto Line by market-data; fall back to marketID if absent.
+	eventID := marketID
+	if len(lines) > 0 && lines[0].EventID != "" {
+		eventID = lines[0].EventID
 	}
 
-	offers, err := s.book.GetOffers(ctx, mkt.ID)
+	for _, line := range lines {
+		s.book.SetMarket(marketID, string(line.Side), line.ImpliedProb)
+	}
+
+	offers, err := s.book.GetOffers(ctx, marketID)
 	if err != nil {
-		s.logger.Error("getting offers", "market_id", mkt.ID, "error", err)
+		s.logger.Error("getting offers", "market_id", marketID, "error", err)
 		return
 	}
 	for _, offer := range offers {
-		// Simple edge check: only bet if offered odds imply >5% edge over the true prob.
+		// Only bet when the offered decimal odds imply >5% edge over the true probability.
 		trueImplied := 1.0 / offer.DecimalOdds * (1 + 0.05)
 		if trueImplied < 0.5 {
 			continue
@@ -156,8 +148,8 @@ func (s *paperTradeService) evaluateMarket(ctx context.Context, mkt marketdata.M
 		}
 		bet := bettracking.Bet{
 			ID:          resp.BetID,
-			EventID:     mkt.EventID,
-			MarketID:    mkt.ID,
+			EventID:     eventID,
+			MarketID:    marketID,
 			Side:        offer.Side,
 			Stake:       resp.AcceptedStake,
 			DecimalOdds: resp.DecimalOdds,
@@ -197,6 +189,19 @@ func (s *paperTradeService) handleGetPerformance(w http.ResponseWriter, _ *http.
 	if err := json.NewEncoder(w).Encode(report); err != nil {
 		s.logger.Error("encoding performance response", "error", err)
 	}
+}
+
+func buildLineStore(ctx context.Context, logger *slog.Logger) (marketdata.LineStore, error) {
+	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
+		store, err := marketdata.NewPostgresLineStore(ctx, dsn)
+		if err != nil {
+			return nil, fmt.Errorf("connecting to postgres: %w", err)
+		}
+		logger.Info("using postgres line store")
+		return store, nil
+	}
+	logger.Warn("DATABASE_URL not set — using in-memory line store (paper bets will not survive restarts)")
+	return marketdata.NewMemoryLineStore(), nil
 }
 
 func envOr(key, fallback string) string {

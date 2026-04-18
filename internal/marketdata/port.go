@@ -21,4 +21,8 @@ type LineStore interface {
 	SaveLines(ctx context.Context, lines []Line) error
 	Lines(ctx context.Context, marketID string) ([]Line, error)
 	ClosingLine(ctx context.Context, marketID string, side Side) (*Line, error)
+	// Markets returns the distinct set of market IDs that have at least one saved line.
+	// It is used by consumers (e.g., paper-trade) to discover what to evaluate without
+	// needing their own OddsProvider.
+	Markets(ctx context.Context) ([]string, error)
 }

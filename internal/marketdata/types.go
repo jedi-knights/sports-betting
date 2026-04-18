@@ -75,8 +75,11 @@ const (
 // RawImpliedProb is derived directly from the quoted odds and includes the bookmaker margin.
 // ImpliedProb is the devigged (true market) probability, obtained by removing the margin
 // across all sides in the same snapshot.
+// EventID is denormalized from the parent Market so consumers of the LineStore do not need
+// a separate market lookup to resolve the originating event.
 type Line struct {
 	ID             string    `json:"id"`
+	EventID        string    `json:"event_id"`
 	MarketID       string    `json:"market_id"`
 	BookID         string    `json:"book_id"`
 	Side           Side      `json:"side"`

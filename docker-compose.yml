@@ -20,11 +20,12 @@ services:
       context: .
       dockerfile: services/market-data/Dockerfile
     environment:
-      SPORT: ${SPORT:-nfl}
-      SEASON: ${SEASON:-2024}
+      SPORT: ${SPORT:-nba}
+      SEASON: ${SEASON:-2026}
       DATA_PATH: /data/odds.json
       POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-60}
       ODDS_API_KEY: ${ODDS_API_KEY}
+      DATABASE_URL: postgres://${POSTGRES_USER:-sportsbetting}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-sportsbetting}?sslmode=disable
     volumes:
       - market_data:/data
     depends_on:
@@ -37,15 +38,12 @@ services:
       context: .
       dockerfile: services/paper-trade/Dockerfile
     environment:
-      SPORT: ${SPORT:-nfl}
-      SEASON: ${SEASON:-2024}
-      DATA_PATH: /data/odds.json
       POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-60}
       ADDR: :8080
+      DATABASE_URL: postgres://${POSTGRES_USER:-sportsbetting}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-sportsbetting}?sslmode=disable
     ports:
       - "${PAPER_TRADE_PORT:-8080}:8080"
     volumes:
-      - market_data:/data
       - bet_store:/bets
     depends_on:
       postgres:

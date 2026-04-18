@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -15,6 +16,9 @@ import (
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	sport := marketdata.Sport(envOr("SPORT", "nfl"))
 	season := envOr("SEASON", "2024")
@@ -35,10 +39,15 @@ func main() {
 			logger.Info("using static odds provider", "path", dataPath)
 		}
 	}
-	store := marketdata.NewMemoryLineStore()
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
+	store, err := buildLineStore(ctx, logger)
+	if err != nil {
+		logger.Error("building line store", "error", err)
+		os.Exit(1)
+	}
+	if closer, ok := store.(interface{ Close() }); ok {
+		defer closer.Close()
+	}
 
 	logger.Info("market-data service starting",
 		"sport", sport,
@@ -60,6 +69,19 @@ func main() {
 			return
 		}
 	}
+}
+
+func buildLineStore(ctx context.Context, logger *slog.Logger) (marketdata.LineStore, error) {
+	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
+		store, err := marketdata.NewPostgresLineStore(ctx, dsn)
+		if err != nil {
+			return nil, fmt.Errorf("connecting to postgres: %w", err)
+		}
+		logger.Info("using postgres line store")
+		return store, nil
+	}
+	logger.Warn("DATABASE_URL not set — using in-memory line store (data will not persist)")
+	return marketdata.NewMemoryLineStore(), nil
 }
 
 func poll(
@@ -86,6 +108,11 @@ func poll(
 			if err != nil {
 				logger.Error("fetching lines", "market_id", mkt.ID, "error", err)
 				continue
+			}
+			// Denormalize event ID onto each line so consumers of the LineStore
+			// can cross-reference bets back to events without a separate lookup.
+			for i := range lines {
+				lines[i].EventID = ev.ID
 			}
 			if err := store.SaveLines(ctx, lines); err != nil {
 				logger.Error("saving lines", "market_id", mkt.ID, "error", err)

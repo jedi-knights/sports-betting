@@ -76,6 +76,27 @@ func TestMemoryLineStore(t *testing.T) {
 		}
 	})
 
+	t.Run("Markets returns distinct market IDs", func(t *testing.T) {
+		// Arrange — add a second market
+		extraLines := []marketdata.Line{
+			{ID: "l4", MarketID: "m2", BookID: "b1", Side: marketdata.SideHome, RecordedAt: now},
+		}
+		if err := store.SaveLines(ctx, extraLines); err != nil {
+			t.Fatalf("SaveLines extra: %v", err)
+		}
+
+		// Act
+		markets, err := store.Markets(ctx)
+
+		// Assert
+		if err != nil {
+			t.Fatalf("Markets: %v", err)
+		}
+		if len(markets) != 2 {
+			t.Errorf("Markets() count = %d, want 2", len(markets))
+		}
+	})
+
 	t.Run("Lines returns a copy not a reference", func(t *testing.T) {
 		got, _ := store.Lines(ctx, "m1")
 		got[0].Label = "mutated"
