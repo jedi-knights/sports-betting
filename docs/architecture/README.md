@@ -251,14 +251,14 @@ Work through phases in order. Check off each item when complete. Do not advance 
 
 ### Phase 7 — Backtesting Harness
 
-- [ ] Implement walk-forward validation engine (Python): rolling train/test windows with configurable lookback
-- [ ] Implement historical data loader: reads odds + outcomes from static files
-- [ ] Implement full pipeline runner: data → model → calibrate → value → size → record
-- [ ] Add lookahead bias guard: assert no future data is accessible at prediction time
-- [ ] Implement CLI command: `bet backtest --sport nfl --season 2023 --model elo`
-- [ ] Implement CLI command: `bet backtest --sport soccer --season 2023 --model poisson`
-- [ ] Generate end-of-run performance report to stdout and JSON file
-- [ ] Integration test: run full backtesting pipeline on a small fixture dataset
+- [x] Implement walk-forward validation engine (Python): rolling train/test windows with configurable lookback
+- [x] Implement historical data loader: reads odds + outcomes from static files
+- [x] Implement full pipeline runner: data → model → calibrate → value → size → record
+- [x] Add lookahead bias guard: assert no future data is accessible at prediction time
+- [x] Implement CLI command: `bet backtest --sport nfl --data games.csv --model elo`
+- [x] Implement CLI command: `bet backtest --sport soccer --data games.csv --model poisson`
+- [x] Generate end-of-run performance report to stdout and JSON file
+- [x] Integration test: run full backtesting pipeline on a small fixture dataset
 
 ### Phase 8 — Paper Trading *(after backtesting is validated)*
 

@@ -63,6 +63,20 @@ class CalibratedModel:
         self._calibrator.fit(probs, outcomes)
         self._calibrator_fitted = True
 
+    def predict_raw(self, features: FeatureSet) -> ProbabilityEstimate:
+        """Predict using the inner model without applying calibration.
+
+        Useful when generating calibration inputs from a held-out validation
+        set during walk-forward backtesting.
+
+        Args:
+            features: Feature set passed directly to the inner model.
+
+        Returns:
+            Uncalibrated ProbabilityEstimate from the inner model.
+        """
+        return self._model.predict(features)
+
     def predict(self, features: FeatureSet) -> ProbabilityEstimate:
         """Predict calibrated win probabilities.
 
