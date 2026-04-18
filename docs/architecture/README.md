@@ -222,12 +222,12 @@ Work through phases in order. Check off each item when complete. Do not advance 
 
 ### Phase 4 — Value Analysis
 
-- [ ] Define `ValueBet` and `EdgeEstimate` types (Python + Go)
-- [ ] Implement EV calculation: `ev = (model_prob × decimal_odds) − 1`
-- [ ] Define `ValueDetector` protocol (Python)
-- [ ] Implement minimum-edge `ValueDetector` with configurable threshold
-- [ ] Implement CLV tracking: compare bet odds to closing line at game time
-- [ ] Unit tests for EV calculation and CLV tracking
+- [x] Define `ValueBet` and `EdgeEstimate` types (Python + Go)
+- [x] Implement EV calculation: `ev = (model_prob × decimal_odds) − 1`
+- [x] Define `ValueDetector` protocol (Python)
+- [x] Implement minimum-edge `ValueDetector` with configurable threshold
+- [x] Implement CLV tracking: compare bet odds to closing line at game time
+- [x] Unit tests for EV calculation and CLV tracking
 
 ### Phase 5 — Bankroll Management
 
