@@ -40,10 +40,24 @@ docs/
   market-efficiency.md     # closing line value, sharp vs. square
   data-and-features.md     # data sources, feature engineering
   emerging.md              # RL, real-time inference, graph networks
+  variance-and-sample-size.md  # how many bets before conclusions are valid
+  psychology-and-discipline.md # cognitive biases and execution discipline
+  arbitrage-and-middles.md     # cross-book price exploitation
+  hedging.md                   # reducing exposure on open positions
+  line-shopping-and-account-management.md  # getting the best price; account longevity
+  prop-betting.md              # player proposition markets
+  weather-modeling.md          # wind, precipitation, temperature effects by sport
+  tournament-and-playoff-modeling.md  # structural differences from regular season
   models/
     poisson.md             # goal-scoring model for soccer
     elo.md                 # dynamic team strength ratings
     logistic-regression.md # baseline classification model
     quantile-regression.md # spread/totals distribution modeling
     ml-methods.md          # XGBoost, Random Forests, ensembles
+  sport-specific/
+    nfl.md                 # key numbers, weather, injury timing, DVOA
+    nba.md                 # back-to-backs, load management, pace
+    mlb.md                 # starting pitchers, park factors, platoon splits
+    nhl.md                 # goaltenders, Corsi/xG, overtime structure
+    soccer.md              # Poisson application, xG, league selection, Asian handicap
 ```
