@@ -241,13 +241,13 @@ Work through phases in order. Check off each item when complete. Do not advance 
 
 ### Phase 6 — Bet Tracking
 
-- [ ] Define `Bet`, `BetStatus`, `Outcome`, `BetResult` domain types (Go)
-- [ ] Define `BetStore` port interface (Go)
-- [ ] Implement in-memory `BetStore` for backtesting and tests
-- [ ] Implement file-based `BetStore` (CSV output)
-- [ ] Implement performance report: ROI, yield, max drawdown, Sharpe ratio, win rate
-- [ ] Implement CLV resolution: update each bet record with the closing line after game time
-- [ ] Unit tests for bet recording and performance report accuracy
+- [x] Define `Bet`, `BetStatus`, `Outcome`, `BetResult` domain types (Go)
+- [x] Define `BetStore` port interface (Go)
+- [x] Implement in-memory `BetStore` for backtesting and tests
+- [x] Implement file-based `BetStore` (CSV output)
+- [x] Implement performance report: ROI, yield, max drawdown, Sharpe ratio, win rate
+- [x] Implement CLV resolution: update each bet record with the closing line after game time
+- [x] Unit tests for bet recording and performance report accuracy
 
 ### Phase 7 — Backtesting Harness
 
