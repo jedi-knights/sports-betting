@@ -26,8 +26,19 @@ func (s *memoryLineStore) SaveLines(_ context.Context, lines []Line) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, l := range lines {
-		s.lines[l.MarketID] = append(s.lines[l.MarketID], l)
 		s.markets[l.MarketID] = struct{}{}
+		existing := s.lines[l.MarketID]
+		updated := false
+		for i, e := range existing {
+			if e.ID == l.ID {
+				existing[i] = l
+				updated = true
+				break
+			}
+		}
+		if !updated {
+			s.lines[l.MarketID] = append(existing, l)
+		}
 	}
 	return nil
 }

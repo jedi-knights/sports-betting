@@ -15,6 +15,41 @@ services:
       timeout: 5s
       retries: 5
 
+  valkey:
+    image: valkey/valkey:8
+    ports:
+      - "${VALKEY_PORT:-6379}:6379"
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: apache/kafka:3.7.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    ports:
+      - "${KAFKA_EXTERNAL_PORT:-9094}:9094"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
   market-data:
     build:
       context: .
@@ -26,6 +61,9 @@ services:
       POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-60}
       ODDS_API_KEY: ${ODDS_API_KEY}
       DATABASE_URL: postgres://${POSTGRES_USER:-sportsbetting}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-sportsbetting}?sslmode=disable
+      VALKEY_ADDR: valkey:6379
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-market-data.lines}
       ADDR: :8081
       GRPC_ADDR: :9090
     ports:
@@ -36,6 +74,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      valkey:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     restart: unless-stopped
 
   paper-trade:
@@ -43,15 +85,19 @@ services:
       context: .
       dockerfile: services/paper-trade/Dockerfile
     environment:
-      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-60}
       ADDR: :8080
-      MARKET_DATA_GRPC_ADDR: market-data:9090
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-market-data.lines}
+      KAFKA_GROUP: paper-trade
     ports:
       - "${PAPER_TRADE_PORT:-8080}:8080"
     depends_on:
-      - market-data
+      kafka:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
   postgres_data:
   market_data:
+  valkey_data:
+  kafka_data:

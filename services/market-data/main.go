@@ -1,5 +1,6 @@
-// Command market-data polls an OddsProvider on a schedule, persists lines into a
-// LineStore, and exposes the data to other services via a REST API and a gRPC API.
+// Command market-data polls an OddsProvider on a schedule, persists lines into
+// a CachingLineStore (Valkey → Postgres), publishes LinesUpdated events to
+// Kafka after each market snapshot, and exposes the data via REST and gRPC APIs.
 package main
 
 import (
@@ -17,8 +18,10 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/jedi-knights/sports-betting/internal/marketdata"
+	"github.com/jedi-knights/sports-betting/internal/marketdata/cachestore"
 	"github.com/jedi-knights/sports-betting/internal/marketdata/grpcserver"
 	"github.com/jedi-knights/sports-betting/internal/marketdata/httpapi"
+	"github.com/jedi-knights/sports-betting/internal/marketdata/kafkapub"
 	pb "github.com/jedi-knights/sports-betting/internal/marketdata/pb"
 )
 
@@ -59,6 +62,9 @@ func main() {
 		defer closer.Close()
 	}
 
+	publisher := buildPublisher(logger)
+	defer func() { _ = publisher.Close() }()
+
 	// Start gRPC server.
 	grpcSrv := grpc.NewServer()
 	pb.RegisterMarketDataServiceServer(grpcSrv, grpcserver.New(store))
@@ -97,11 +103,11 @@ func main() {
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
-	pollAll(ctx, logger, provider, store, sports, season)
+	pollAll(ctx, logger, provider, store, publisher, sports, season)
 	for {
 		select {
 		case <-ticker.C:
-			pollAll(ctx, logger, provider, store, sports, season)
+			pollAll(ctx, logger, provider, store, publisher, sports, season)
 		case <-ctx.Done():
 			logger.Info("market-data service shutting down")
 			grpcSrv.GracefulStop()
@@ -114,49 +120,55 @@ func main() {
 }
 
 func buildLineStore(ctx context.Context, logger *slog.Logger) (marketdata.LineStore, error) {
-	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
-		store, err := marketdata.NewPostgresLineStore(ctx, dsn)
+	if dsn := os.Getenv("DATABASE_URL"); dsn == "" {
+		logger.Warn("DATABASE_URL not set — using in-memory line store (data will not persist)")
+		return marketdata.NewMemoryLineStore(), nil
+	}
+	pg, err := marketdata.NewPostgresLineStore(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return nil, fmt.Errorf("connecting to postgres: %w", err)
+	}
+	if valkeyAddr := os.Getenv("VALKEY_ADDR"); valkeyAddr != "" {
+		vc, err := cachestore.NewValkeyCache(valkeyAddr)
 		if err != nil {
-			return nil, fmt.Errorf("connecting to postgres: %w", err)
+			logger.Warn("valkey unavailable, running without cache", "addr", valkeyAddr, "error", err)
+			return pg, nil
 		}
-		logger.Info("using postgres line store")
-		return store, nil
+		logger.Info("using postgres line store with valkey cache", "valkey", valkeyAddr)
+		return cachestore.New(pg, vc, time.Minute), nil
 	}
-	logger.Warn("DATABASE_URL not set — using in-memory line store (data will not persist)")
-	return marketdata.NewMemoryLineStore(), nil
+	logger.Info("using postgres line store (no cache)")
+	return pg, nil
 }
 
-// parseSports parses a comma-separated list of sport slugs (e.g. "nba,nfl") into
-// a slice of Sport values.  Whitespace around each entry is trimmed.  An empty
-// string returns the default of [SportNFL].
-func parseSports(raw string) []marketdata.Sport {
-	if raw == "" {
-		return []marketdata.Sport{marketdata.SportNFL}
+func buildPublisher(logger *slog.Logger) marketdata.EventPublisher {
+	brokerList := os.Getenv("KAFKA_BROKERS")
+	topic := envOr("KAFKA_TOPIC", "market-data.lines")
+	if brokerList == "" {
+		logger.Warn("KAFKA_BROKERS not set — events will not be published")
+		return marketdata.NullEventPublisher{}
 	}
-	parts := strings.Split(raw, ",")
-	sports := make([]marketdata.Sport, 0, len(parts))
-	for _, p := range parts {
-		if s := strings.TrimSpace(p); s != "" {
-			sports = append(sports, marketdata.Sport(s))
-		}
+	brokers := strings.Split(brokerList, ",")
+	pub, err := kafkapub.New(brokers, topic)
+	if err != nil {
+		logger.Warn("kafka publisher unavailable, falling back to null publisher", "error", err)
+		return marketdata.NullEventPublisher{}
 	}
-	if len(sports) == 0 {
-		return []marketdata.Sport{marketdata.SportNFL}
-	}
-	return sports
+	logger.Info("publishing events to kafka", "brokers", brokers, "topic", topic)
+	return pub
 }
 
-// pollAll runs a poll cycle for every configured sport in sequence.
 func pollAll(
 	ctx context.Context,
 	logger *slog.Logger,
 	provider marketdata.OddsProvider,
 	store marketdata.LineStore,
+	publisher marketdata.EventPublisher,
 	sports []marketdata.Sport,
 	season string,
 ) {
 	for _, sport := range sports {
-		poll(ctx, logger, provider, store, sport, season)
+		poll(ctx, logger, provider, store, publisher, sport, season)
 	}
 }
 
@@ -165,6 +177,7 @@ func poll(
 	logger *slog.Logger,
 	provider marketdata.OddsProvider,
 	store marketdata.LineStore,
+	publisher marketdata.EventPublisher,
 	sport marketdata.Sport,
 	season string,
 ) {
@@ -185,17 +198,42 @@ func poll(
 				logger.Error("fetching lines", "market_id", mkt.ID, "error", err)
 				continue
 			}
-			// Denormalize event ID onto each line so consumers of the LineStore
-			// can cross-reference bets back to events without a separate lookup.
 			for i := range lines {
 				lines[i].EventID = ev.ID
 			}
 			if err := store.SaveLines(ctx, lines); err != nil {
 				logger.Error("saving lines", "market_id", mkt.ID, "error", err)
+				continue
+			}
+			event := marketdata.LinesUpdatedEvent{
+				MarketID:   mkt.ID,
+				EventID:    ev.ID,
+				Lines:      lines,
+				RecordedAt: time.Now(),
+			}
+			if err := publisher.PublishLinesUpdated(ctx, event); err != nil {
+				logger.Error("publishing event", "market_id", mkt.ID, "error", err)
 			}
 		}
 	}
-	logger.Info("poll complete", "events", len(events))
+	logger.Info("poll complete", "sport", sport, "events", len(events))
+}
+
+func parseSports(raw string) []marketdata.Sport {
+	if raw == "" {
+		return []marketdata.Sport{marketdata.SportNFL}
+	}
+	parts := strings.Split(raw, ",")
+	sports := make([]marketdata.Sport, 0, len(parts))
+	for _, p := range parts {
+		if s := strings.TrimSpace(p); s != "" {
+			sports = append(sports, marketdata.Sport(s))
+		}
+	}
+	if len(sports) == 0 {
+		return []marketdata.Sport{marketdata.SportNFL}
+	}
+	return sports
 }
 
 func envOr(key, fallback string) string {
