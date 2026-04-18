@@ -91,5 +91,42 @@ def backtest(
     sys.exit(0)
 
 
+@main.command(name="paper-trade")
+@click.option("--sport", required=True, type=click.Choice(["nfl", "soccer"]))
+@click.option(
+    "--host",
+    default="http://localhost:8080",
+    show_default=True,
+    help="Base URL of the paper-trade Go service",
+)
+def paper_trade(sport: str, host: str) -> None:
+    """Monitor the paper-trade service and display live performance."""
+    import urllib.error
+    import urllib.request
+
+    perf_url = f"{host}/paper/performance"
+    bets_url = f"{host}/paper/bets"
+
+    try:
+        with urllib.request.urlopen(perf_url) as resp:  # noqa: S310
+            report = json.loads(resp.read())
+        with urllib.request.urlopen(bets_url) as resp:  # noqa: S310
+            bets = json.loads(resp.read())
+    except urllib.error.URLError as exc:
+        click.echo(
+            f"Error connecting to paper-trade service at {host}: {exc}", err=True
+        )
+        sys.exit(1)
+
+    click.echo(f"\nPaper trade performance ({sport})")
+    click.echo(f"  Total bets  : {report.get('total_bets', 0)}")
+    click.echo(f"  Won         : {report.get('won_bets', 0)}")
+    click.echo(f"  Win rate    : {report.get('win_rate', 0):.1%}")
+    click.echo(f"  Total staked: {report.get('total_staked', 0):.2f}")
+    click.echo(f"  Profit      : {report.get('total_profit', 0):.2f}")
+    click.echo(f"  ROI         : {report.get('roi', 0):.2%}")
+    click.echo(f"\n  Open bets: {sum(1 for b in bets if b.get('Status') == 'open')}")
+
+
 if __name__ == "__main__":
     main()

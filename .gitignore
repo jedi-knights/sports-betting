@@ -10,6 +10,8 @@ tmp/
 
 # Go build artifacts
 /bin/
+/market-data
+/paper-trade
 *.exe
 *.test
 *.out

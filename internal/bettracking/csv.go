@@ -32,7 +32,7 @@ func NewCSVBetStore(path string) (*CSVBetStore, error) {
 		}
 		w := csv.NewWriter(f)
 		if writeErr := w.Write(csvHeader); writeErr != nil {
-			f.Close()
+			_ = f.Close()
 			return nil, writeErr
 		}
 		w.Flush()
@@ -62,13 +62,17 @@ func (s *CSVBetStore) Save(bet Bet) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 	w := csv.NewWriter(f)
 	if err := w.Write(betToRow(bet)); err != nil {
+		_ = f.Close()
 		return err
 	}
 	w.Flush()
-	return w.Error()
+	if flushErr := w.Error(); flushErr != nil {
+		_ = f.Close()
+		return flushErr
+	}
+	return f.Close()
 }
 
 // FindByID returns the bet with the given ID. Returns ErrNotFound if absent.
@@ -187,7 +191,7 @@ func (s *CSVBetStore) readAll() ([]Bet, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	records, err := csv.NewReader(f).ReadAll()
 	if err != nil {
@@ -213,19 +217,23 @@ func (s *CSVBetStore) writeAll(bets []Bet) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-
 	w := csv.NewWriter(f)
 	if err := w.Write(csvHeader); err != nil {
+		_ = f.Close()
 		return err
 	}
 	for _, b := range bets {
 		if err := w.Write(betToRow(b)); err != nil {
+			_ = f.Close()
 			return err
 		}
 	}
 	w.Flush()
-	return w.Error()
+	if flushErr := w.Error(); flushErr != nil {
+		_ = f.Close()
+		return flushErr
+	}
+	return f.Close()
 }
 
 func betToRow(b Bet) []string {

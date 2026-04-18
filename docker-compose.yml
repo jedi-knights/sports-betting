@@ -15,5 +15,43 @@ services:
       timeout: 5s
       retries: 5
 
+  market-data:
+    build:
+      context: .
+      dockerfile: services/market-data/Dockerfile
+    environment:
+      SPORT: ${SPORT:-nfl}
+      SEASON: ${SEASON:-2024}
+      DATA_PATH: /data/odds.csv
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-60}
+    volumes:
+      - market_data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  paper-trade:
+    build:
+      context: .
+      dockerfile: services/paper-trade/Dockerfile
+    environment:
+      SPORT: ${SPORT:-nfl}
+      SEASON: ${SEASON:-2024}
+      DATA_PATH: /data/odds.csv
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-60}
+      ADDR: :8080
+    ports:
+      - "${PAPER_TRADE_PORT:-8080}:8080"
+    volumes:
+      - market_data:/data
+      - bet_store:/bets
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  market_data:
+  bet_store:

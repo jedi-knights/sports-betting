@@ -263,27 +263,27 @@ Work through phases in order. Check off each item when complete. Do not advance 
 ### Phase 8 — Paper Trading *(after backtesting is validated)*
 
 **Simulated Bookmaker**
-- [ ] Define `SimulatedBookmakerClient` implementing the `BookmakerClient` interface
-- [ ] Implement configurable margin: apply overround to all offered odds
-- [ ] Implement line movement: shift offered odds after each accepted bet proportional to stake size
-- [ ] Implement bet rejection: reject bets placed on expired offers or lines that have moved since the offer
-- [ ] Implement partial fills: cap accepted stake at configured `max_stake`; return remainder unfilled
-- [ ] Implement account limiting: after N winning bets, reduce `max_stake` to a floor value
-- [ ] Unit tests for each simulated behaviour (movement, rejection, partial fill, limiting)
+- [x] Define `SimulatedBookmakerClient` implementing the `BookmakerClient` interface
+- [x] Implement configurable margin: apply overround to all offered odds
+- [x] Implement line movement: shift offered odds after each accepted bet proportional to stake size
+- [x] Implement bet rejection: reject bets placed on expired offers or lines that have moved since the offer
+- [x] Implement partial fills: cap accepted stake at configured `max_stake`; return remainder unfilled
+- [x] Implement account limiting: after N winning bets, reduce `max_stake` to a floor value
+- [x] Unit tests for each simulated behaviour (movement, rejection, partial fill, limiting)
 
 **Go services**
-- [ ] Implement Go service: `market-data` — polls `OddsProvider` on a schedule, stores in `LineStore`
-- [ ] Implement Go service: `paper-trade` — wires `SimulatedBookmakerClient` into the full pipeline; records paper bets
-- [ ] Expose REST API: `GET /paper/bets`, `GET /paper/performance`
-- [ ] Implement CLI command: `bet paper-trade --sport nfl` (connects to the Go service)
-- [ ] Integration test: full paper trading loop end-to-end with `SimulatedBookmakerClient`
+- [x] Implement Go service: `market-data` — polls `OddsProvider` on a schedule, stores in `LineStore`
+- [x] Implement Go service: `paper-trade` — wires `SimulatedBookmakerClient` into the full pipeline; records paper bets
+- [x] Expose REST API: `GET /paper/bets`, `GET /paper/performance`
+- [x] Implement CLI command: `bet paper-trade --sport nfl` (connects to the Go service)
+- [x] Integration test: full paper trading loop end-to-end with `SimulatedBookmakerClient`
 
 **Containerization**
-- [ ] Write `services/market-data/Dockerfile` (multi-stage: builder + distroless)
-- [ ] Write `services/paper-trade/Dockerfile` (multi-stage: builder + distroless)
-- [ ] Add `market-data` and `paper-trade` services to `docker-compose.yml`
-- [ ] Declare named volume for `LineStore` persistence (if file-based) or wire to Postgres
-- [ ] Declare named volume for `BetStore` persistence
+- [x] Write `services/market-data/Dockerfile` (multi-stage: builder + distroless)
+- [x] Write `services/paper-trade/Dockerfile` (multi-stage: builder + distroless)
+- [x] Add `market-data` and `paper-trade` services to `docker-compose.yml`
+- [x] Declare named volume for `LineStore` persistence (if file-based) or wire to Postgres
+- [x] Declare named volume for `BetStore` persistence
 - [ ] Verify `docker compose up` brings up the full stack; data survives `down` / `up`
 
 ### Phase 9 — Live Execution *(after paper trading is validated)*
