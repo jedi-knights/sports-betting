@@ -2,10 +2,6 @@
 
 General purpose code and documentation for building, evaluating, and applying sports betting models.
 
-## Badges
-
-N/A — no CI/CD workflows defined yet.
-
 ## Table of Contents
 
 - [Overview](#overview)
