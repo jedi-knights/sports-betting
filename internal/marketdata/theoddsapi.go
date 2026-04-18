@@ -11,6 +11,7 @@ import (
 )
 
 var _ OddsProvider = (*TheOddsAPIProvider)(nil)
+var _ ScoresProvider = (*TheOddsAPIProvider)(nil)
 
 // knownBookmakers classifies US bookmakers by their market-making behaviour.
 // Keys are The Odds API bookmaker identifiers.
@@ -310,6 +311,87 @@ func (p *TheOddsAPIProvider) refresh(ctx context.Context, sport Sport, sportKey 
 	p.mu.Unlock()
 
 	return nil
+}
+
+// oddsAPIScoreEvent is the JSON shape returned by The Odds API v4 scores endpoint.
+type oddsAPIScoreEvent struct {
+	ID           string           `json:"id"`
+	SportKey     string           `json:"sport_key"`
+	CommenceTime time.Time        `json:"commence_time"`
+	Completed    bool             `json:"completed"`
+	HomeTeam     string           `json:"home_team"`
+	AwayTeam     string           `json:"away_team"`
+	Scores       []oddsAPIScore   `json:"scores"`
+	LastUpdate   *time.Time       `json:"last_update"`
+}
+
+type oddsAPIScore struct {
+	Name  string `json:"name"`
+	Score string `json:"score"`
+}
+
+// Scores fetches completed game results for the given sport from The Odds API v4
+// /v4/sports/{sport}/scores endpoint.  daysFrom controls how many days back to
+// include (1–3 for most sports).
+func (p *TheOddsAPIProvider) Scores(ctx context.Context, sport Sport, daysFrom int) ([]GameResult, error) {
+	sportKey, ok := sportKeys[sport]
+	if !ok {
+		return nil, fmt.Errorf("unsupported sport: %s", sport)
+	}
+	endpoint := fmt.Sprintf("%s/v4/sports/%s/scores", p.baseURL, sportKey)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("building scores request: %w", err)
+	}
+	q := url.Values{}
+	q.Set("apiKey", p.apiKey)
+	q.Set("daysFrom", fmt.Sprintf("%d", daysFrom))
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetching scores: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("scores API responded with status %d", resp.StatusCode)
+	}
+
+	var apiEvents []oddsAPIScoreEvent
+	if err := json.NewDecoder(resp.Body).Decode(&apiEvents); err != nil {
+		return nil, fmt.Errorf("decoding scores response: %w", err)
+	}
+
+	var results []GameResult
+	for _, ae := range apiEvents {
+		if !ae.Completed {
+			continue
+		}
+		r := GameResult{
+			EventID:  ae.ID,
+			Sport:    sport,
+			HomeTeam: ae.HomeTeam,
+			AwayTeam: ae.AwayTeam,
+		}
+		if ae.LastUpdate != nil {
+			r.CompletedAt = *ae.LastUpdate
+		}
+		for _, s := range ae.Scores {
+			var score int
+			if _, err := fmt.Sscanf(s.Score, "%d", &score); err != nil {
+				continue
+			}
+			switch s.Name {
+			case ae.HomeTeam:
+				r.HomeScore = score
+			case ae.AwayTeam:
+				r.AwayScore = score
+			}
+		}
+		results = append(results, r)
+	}
+	return results, nil
 }
 
 // outcomeNameToSide maps an outcome name to a Side using the event's team names.

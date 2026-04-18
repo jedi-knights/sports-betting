@@ -31,6 +31,8 @@ func main() {
 	kafkaBrokers := strings.Split(envOr("KAFKA_BROKERS", "kafka:9092"), ",")
 	kafkaTopic := envOr("KAFKA_TOPIC", "market-data.lines")
 	kafkaGroup := envOr("KAFKA_GROUP", "paper-trade")
+	kafkaScoresTopic := envOr("KAFKA_SCORES_TOPIC", "market-data.scores")
+	kafkaScoresGroup := envOr("KAFKA_SCORES_GROUP", "paper-trade-scores")
 
 	sub, err := kafkasub.New(kafkaBrokers, kafkaGroup, kafkaTopic)
 	if err != nil {
@@ -38,7 +40,15 @@ func main() {
 		os.Exit(1)
 	}
 	defer func() { _ = sub.Close() }()
-	logger.Info("subscribed to kafka", "brokers", kafkaBrokers, "topic", kafkaTopic, "group", kafkaGroup)
+	logger.Info("subscribed to lines kafka topic", "brokers", kafkaBrokers, "topic", kafkaTopic, "group", kafkaGroup)
+
+	scoresSub, err := kafkasub.NewScoresSubscriber(kafkaBrokers, kafkaScoresGroup, kafkaScoresTopic)
+	if err != nil {
+		logger.Error("creating scores kafka subscriber", "error", err)
+		os.Exit(1)
+	}
+	defer func() { _ = scoresSub.Close() }()
+	logger.Info("subscribed to scores kafka topic", "topic", kafkaScoresTopic, "group", kafkaScoresGroup)
 
 	betStore := bettracking.NewMemoryBetStore()
 	book := bookmaker.NewSimulatedBookmakerClient(
@@ -70,6 +80,15 @@ func main() {
 		}
 	}()
 
+	// Subscribe to game-completed events for bet settlement.
+	go func() {
+		if err := scoresSub.Subscribe(ctx, svc.handleGameCompleted); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				logger.Error("scores subscriber error", "error", err)
+			}
+		}
+	}()
+
 	// Block on the Kafka subscription loop; returns when ctx is cancelled.
 	if err := sub.Subscribe(ctx, svc.handleLinesUpdated); err != nil {
 		if !errors.Is(err, context.Canceled) {
@@ -87,6 +106,29 @@ type paperTradeService struct {
 	logger   *slog.Logger
 	betStore bettracking.BetStore
 	book     *bookmaker.SimulatedBookmakerClient
+}
+
+// handleGameCompleted is called by the scores subscriber for each GameCompleted event.
+// It finds all open bets for the completed event and resolves them as won or lost.
+func (s *paperTradeService) handleGameCompleted(_ context.Context, event marketdata.GameCompletedEvent) error {
+	bets, err := s.betStore.FindByEventID(event.Result.EventID)
+	if err != nil {
+		s.logger.Error("finding bets for event", "event_id", event.Result.EventID, "error", err)
+		return err
+	}
+	winningSide := string(event.Result.WinningSide())
+	for _, bet := range bets {
+		if bet.Status != bettracking.BetStatusOpen {
+			continue
+		}
+		won := bet.Side == winningSide
+		if err := s.betStore.Resolve(bet.ID, won); err != nil {
+			s.logger.Error("resolving bet", "bet_id", bet.ID, "error", err)
+			continue
+		}
+		s.logger.Info("bet resolved", "bet_id", bet.ID, "event_id", event.Result.EventID, "won", won)
+	}
+	return nil
 }
 
 // handleLinesUpdated is called by the Kafka subscriber for each LinesUpdated event.

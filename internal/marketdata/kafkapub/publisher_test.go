@@ -27,7 +27,7 @@ func TestKafkaPublisher_PublishLinesUpdated(t *testing.T) {
 	addrs := brokers(t)
 	topic := "test.lines." + t.Name()
 
-	pub, err := kafkapub.New(addrs, topic)
+	pub, err := kafkapub.New(addrs, topic, topic+".scores")
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

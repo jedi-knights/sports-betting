@@ -100,14 +100,23 @@ func main() {
 		"poll_interval", pollInterval,
 	)
 
+	scoresDaysFrom := intEnv("SCORES_DAYS_FROM", 1)
+	scoresProvider, hasScores := provider.(marketdata.ScoresProvider)
+
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
 	pollAll(ctx, logger, provider, store, publisher, sports, season)
+	if hasScores {
+		pollScores(ctx, logger, scoresProvider, publisher, sports, scoresDaysFrom)
+	}
 	for {
 		select {
 		case <-ticker.C:
 			pollAll(ctx, logger, provider, store, publisher, sports, season)
+			if hasScores {
+				pollScores(ctx, logger, scoresProvider, publisher, sports, scoresDaysFrom)
+			}
 		case <-ctx.Done():
 			logger.Info("market-data service shutting down")
 			grpcSrv.GracefulStop()
@@ -143,18 +152,19 @@ func buildLineStore(ctx context.Context, logger *slog.Logger) (marketdata.LineSt
 
 func buildPublisher(logger *slog.Logger) marketdata.EventPublisher {
 	brokerList := os.Getenv("KAFKA_BROKERS")
-	topic := envOr("KAFKA_TOPIC", "market-data.lines")
 	if brokerList == "" {
 		logger.Warn("KAFKA_BROKERS not set — events will not be published")
 		return marketdata.NullEventPublisher{}
 	}
+	linesTopic := envOr("KAFKA_TOPIC", "market-data.lines")
+	scoresTopic := envOr("KAFKA_SCORES_TOPIC", "market-data.scores")
 	brokers := strings.Split(brokerList, ",")
-	pub, err := kafkapub.New(brokers, topic)
+	pub, err := kafkapub.New(brokers, linesTopic, scoresTopic)
 	if err != nil {
 		logger.Warn("kafka publisher unavailable, falling back to null publisher", "error", err)
 		return marketdata.NullEventPublisher{}
 	}
-	logger.Info("publishing events to kafka", "brokers", brokers, "topic", topic)
+	logger.Info("publishing events to kafka", "brokers", brokers, "lines_topic", linesTopic, "scores_topic", scoresTopic)
 	return pub
 }
 
@@ -250,4 +260,41 @@ func durationEnv(key string, fallbackSeconds int) time.Duration {
 		}
 	}
 	return time.Duration(fallbackSeconds) * time.Second
+}
+
+func intEnv(key string, fallback int) int {
+	if v := os.Getenv(key); v != "" {
+		var n int
+		if _, err := fmt.Sscanf(v, "%d", &n); err == nil {
+			return n
+		}
+	}
+	return fallback
+}
+
+func pollScores(
+	ctx context.Context,
+	logger *slog.Logger,
+	provider marketdata.ScoresProvider,
+	publisher marketdata.EventPublisher,
+	sports []marketdata.Sport,
+	daysFrom int,
+) {
+	for _, sport := range sports {
+		results, err := provider.Scores(ctx, sport, daysFrom)
+		if err != nil {
+			logger.Error("fetching scores", "sport", sport, "error", err)
+			continue
+		}
+		for _, result := range results {
+			event := marketdata.GameCompletedEvent{
+				Result:     result,
+				RecordedAt: time.Now(),
+			}
+			if err := publisher.PublishGameCompleted(ctx, event); err != nil {
+				logger.Error("publishing game completed", "event_id", result.EventID, "error", err)
+			}
+		}
+		logger.Info("scores poll complete", "sport", sport, "completed_games", len(results))
+	}
 }

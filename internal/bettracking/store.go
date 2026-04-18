@@ -15,6 +15,8 @@ type BetStore interface {
 	FindAll() ([]Bet, error)
 	FindByStatus(status BetStatus) ([]Bet, error)
 	Update(bet Bet) error
+	// FindByEventID returns all bets for the given event ID.
+	FindByEventID(eventID string) ([]Bet, error)
 	// Resolve marks a bet as won or lost.
 	Resolve(betID string, won bool) error
 	// ResolveCLV computes and stores closing line value for a bet.

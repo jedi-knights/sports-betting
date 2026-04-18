@@ -75,6 +75,19 @@ func (s *MemoryBetStore) Update(bet Bet) error {
 	return nil
 }
 
+// FindByEventID returns all bets associated with the given event ID.
+func (s *MemoryBetStore) FindByEventID(eventID string) ([]Bet, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var out []Bet
+	for _, id := range s.order {
+		if b := s.bets[id]; b.EventID == eventID {
+			out = append(out, b)
+		}
+	}
+	return out, nil
+}
+
 // Resolve marks a bet won or lost based on the game outcome.
 func (s *MemoryBetStore) Resolve(betID string, won bool) error {
 	s.mu.Lock()

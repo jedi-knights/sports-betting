@@ -11,6 +11,48 @@ import (
 	"github.com/jedi-knights/sports-betting/internal/marketdata"
 )
 
+// scoresAPIFixture is a minimal The Odds API v4 scores response with one completed NFL game.
+var scoresAPIFixture = []map[string]any{
+	{
+		"id":            "event1",
+		"sport_key":     "americanfootball_nfl",
+		"commence_time": "2024-09-05T23:20:00Z",
+		"completed":     true,
+		"home_team":     "Kansas City Chiefs",
+		"away_team":     "Baltimore Ravens",
+		"scores": []map[string]any{
+			{"name": "Kansas City Chiefs", "score": "27"},
+			{"name": "Baltimore Ravens", "score": "20"},
+		},
+		"last_update": "2024-09-06T02:00:00Z",
+	},
+	{
+		"id":            "event2",
+		"sport_key":     "americanfootball_nfl",
+		"commence_time": "2024-09-06T20:00:00Z",
+		"completed":     false,
+		"home_team":     "Dallas Cowboys",
+		"away_team":     "New York Giants",
+		"scores":        nil,
+		"last_update":   nil,
+	},
+}
+
+func newScoresAPIServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Validate the path contains the sport key.
+		if r.URL.Path == "" {
+			http.Error(w, "bad path", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(scoresAPIFixture); err != nil {
+			http.Error(w, "encode error", http.StatusInternalServerError)
+		}
+	}))
+}
+
 // oddsAPIFixture is a minimal The Odds API v4 odds response with one NFL event
 // and one bookmaker offering h2h, spreads, and totals.
 var oddsAPIFixture = []map[string]any{
@@ -308,4 +350,44 @@ func TestTheOddsAPIProvider(t *testing.T) {
 			t.Errorf("Book.Type = %q, want %q", b.Type, marketdata.BookTypeSoft)
 		}
 	})
+}
+
+func TestTheOddsAPIProvider_Scores(t *testing.T) {
+	ctx := context.Background()
+
+	// Arrange
+	srv := newScoresAPIServer(t)
+	t.Cleanup(srv.Close)
+	p := marketdata.NewTheOddsAPIProvider("test-key", marketdata.WithBaseURL(srv.URL))
+
+	// Act
+	results, err := p.Scores(ctx, marketdata.SportNFL, 1)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("Scores: %v", err)
+	}
+	// Only completed events should be returned.
+	if len(results) != 1 {
+		t.Fatalf("Scores() count = %d, want 1 (only completed games)", len(results))
+	}
+	r := results[0]
+	if r.EventID != "event1" {
+		t.Errorf("GameResult.EventID = %q, want %q", r.EventID, "event1")
+	}
+	if r.HomeTeam != "Kansas City Chiefs" {
+		t.Errorf("GameResult.HomeTeam = %q, want %q", r.HomeTeam, "Kansas City Chiefs")
+	}
+	if r.AwayTeam != "Baltimore Ravens" {
+		t.Errorf("GameResult.AwayTeam = %q, want %q", r.AwayTeam, "Baltimore Ravens")
+	}
+	if r.HomeScore != 27 {
+		t.Errorf("GameResult.HomeScore = %d, want 27", r.HomeScore)
+	}
+	if r.AwayScore != 20 {
+		t.Errorf("GameResult.AwayScore = %d, want 20", r.AwayScore)
+	}
+	if r.WinningSide() != marketdata.SideHome {
+		t.Errorf("WinningSide() = %q, want home", r.WinningSide())
+	}
 }

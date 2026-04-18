@@ -15,11 +15,19 @@ type LinesUpdatedEvent struct {
 	RecordedAt time.Time `json:"recorded_at"`
 }
 
+// GameCompletedEvent is published by market-data when a game has finished and
+// final scores are confirmed.  Consumers use it to settle open bets.
+type GameCompletedEvent struct {
+	Result     GameResult `json:"result"`
+	RecordedAt time.Time  `json:"recorded_at"`
+}
+
 // EventPublisher publishes market-data domain events to an event bus.
 // Implementations include KafkaPublisher for production and NullEventPublisher
 // for development environments without a broker.
 type EventPublisher interface {
 	PublishLinesUpdated(ctx context.Context, event LinesUpdatedEvent) error
+	PublishGameCompleted(ctx context.Context, event GameCompletedEvent) error
 	Close() error
 }
 
@@ -27,6 +35,10 @@ type EventPublisher interface {
 type NullEventPublisher struct{}
 
 func (NullEventPublisher) PublishLinesUpdated(_ context.Context, _ LinesUpdatedEvent) error {
+	return nil
+}
+
+func (NullEventPublisher) PublishGameCompleted(_ context.Context, _ GameCompletedEvent) error {
 	return nil
 }
 

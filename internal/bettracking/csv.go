@@ -137,6 +137,23 @@ func (s *CSVBetStore) Update(bet Bet) error {
 	return s.writeAll(all)
 }
 
+// FindByEventID returns all bets associated with the given event ID.
+func (s *CSVBetStore) FindByEventID(eventID string) ([]Bet, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	all, err := s.readAll()
+	if err != nil {
+		return nil, err
+	}
+	var out []Bet
+	for _, b := range all {
+		if b.EventID == eventID {
+			out = append(out, b)
+		}
+	}
+	return out, nil
+}
+
 // Resolve marks a bet won or lost and rewrites the file.
 func (s *CSVBetStore) Resolve(betID string, won bool) error {
 	s.mu.Lock()

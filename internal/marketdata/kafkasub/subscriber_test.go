@@ -22,12 +22,65 @@ func brokers(t *testing.T) []string {
 	return strings.Split(v, ",")
 }
 
+// TestScoresSubscriber_ReceivesPublishedEvent verifies round-trip publish/consume
+// of GameCompletedEvent through a real Kafka broker.
+func TestScoresSubscriber_ReceivesPublishedEvent(t *testing.T) {
+	addrs := brokers(t)
+	topic := "test.scores." + t.Name()
+	group := "test-scores-group-" + t.Name()
+
+	pub, err := kafkapub.New(addrs, topic+".lines", topic)
+	if err != nil {
+		t.Fatalf("publisher: %v", err)
+	}
+	defer func() { _ = pub.Close() }()
+
+	sub, err := kafkasub.NewScoresSubscriber(addrs, group, topic)
+	if err != nil {
+		t.Fatalf("scores subscriber: %v", err)
+	}
+	defer func() { _ = sub.Close() }()
+
+	event := marketdata.GameCompletedEvent{
+		Result: marketdata.GameResult{
+			EventID:   "ev1",
+			HomeTeam:  "Chiefs",
+			AwayTeam:  "Ravens",
+			HomeScore: 27,
+			AwayScore: 20,
+		},
+		RecordedAt: time.Now(),
+	}
+	if err := pub.PublishGameCompleted(context.Background(), event); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+
+	var received atomic.Int32
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	go func() {
+		_ = sub.Subscribe(ctx, func(_ context.Context, e marketdata.GameCompletedEvent) error {
+			if e.Result.EventID == event.Result.EventID {
+				received.Add(1)
+				cancel()
+			}
+			return nil
+		})
+	}()
+
+	<-ctx.Done()
+	if received.Load() == 0 {
+		t.Fatal("no GameCompletedEvent received within timeout")
+	}
+}
+
 func TestKafkaSubscriber_ReceivesPublishedEvent(t *testing.T) {
 	addrs := brokers(t)
 	topic := "test.sub." + t.Name()
 	group := "test-group-" + t.Name()
 
-	pub, err := kafkapub.New(addrs, topic)
+	pub, err := kafkapub.New(addrs, topic, topic+".scores")
 	if err != nil {
 		t.Fatalf("publisher: %v", err)
 	}

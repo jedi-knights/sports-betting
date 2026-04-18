@@ -127,6 +127,39 @@ func runStoreTests(t *testing.T, store bettracking.BetStore) {
 		}
 	})
 
+	t.Run("find by event id returns matching bets", func(t *testing.T) {
+		// Arrange — all bets created by newBet use EventID "event-1"
+
+		// Act
+		bets, err := store.FindByEventID("event-1")
+
+		// Assert
+		if err != nil {
+			t.Fatalf("FindByEventID: %v", err)
+		}
+		if len(bets) == 0 {
+			t.Fatal("expected at least one bet for event-1, got none")
+		}
+		for _, b := range bets {
+			if b.EventID != "event-1" {
+				t.Errorf("got EventID %q, want event-1", b.EventID)
+			}
+		}
+	})
+
+	t.Run("find by event id unknown returns empty", func(t *testing.T) {
+		// Arrange / Act
+		bets, err := store.FindByEventID("no-such-event")
+
+		// Assert
+		if err != nil {
+			t.Fatalf("FindByEventID: %v", err)
+		}
+		if len(bets) != 0 {
+			t.Fatalf("got %d bets, want 0", len(bets))
+		}
+	})
+
 	t.Run("resolve clv sets closing line value", func(t *testing.T) {
 		if err := store.Save(newBet("b4")); err != nil {
 			t.Fatalf("Save: %v", err)
