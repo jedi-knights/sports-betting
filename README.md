@@ -30,6 +30,7 @@ All research and reference material lives under [`docs/`](docs/). Start with the
 | [Modeling — Models](docs/modeling/models/README.md) | Model deep-dives: Poisson, Elo, logistic regression, quantile regression, ML methods |
 | [Strategy](docs/strategy/README.md) | Execution: bankroll management, line shopping, props, arbitrage, hedging, playoff modeling |
 | [Sport-Specific](docs/sport-specific/README.md) | Per-sport guides: NFL, NBA, MLB, NHL, Soccer |
+| [Architecture](docs/architecture/README.md) | Bounded contexts, data models, and implementation plan for the platform |
 
 **Recommended starting point for newcomers:** [Foundations → Odds and Markets](docs/foundations/odds-and-markets.md)
 

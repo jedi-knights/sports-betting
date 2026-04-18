@@ -67,4 +67,8 @@ docs/
     mlb.md                     # starting pitchers, park factors, platoon splits
     nhl.md                     # goaltenders, Corsi/xG, overtime structure
     soccer.md                  # Poisson application, xG, league selection, Asian handicap
+
+  architecture/                # platform design — read before implementing anything
+    README.md                  # bounded contexts, architectural decisions, implementation checklist
+    data-models.md             # canonical type definitions for all contexts (Go + Python)
 ```
