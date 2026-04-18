@@ -6,7 +6,7 @@ A reference dictionary for terms that appear throughout this repository's docume
 
 ## Odds & Probability
 
-**Odds** — A way of expressing the likelihood of an outcome and the payout for a correct bet. Three formats exist (American, decimal, fractional) but they all encode the same information. See [`odds-and-markets.md`](odds-and-markets.md).
+**Odds** — A way of expressing the likelihood of an outcome and the payout for a correct bet. Three formats exist (American, decimal, fractional) but they all encode the same information. See [`odds-and-markets.md`](foundations/odds-and-markets.md).
 
 **American odds (moneyline odds)** — Expressed as a positive or negative integer relative to $100. `-110` means bet $110 to win $100. `+150` means bet $100 to win $150. Negative = favorite, positive = underdog.
 
@@ -58,7 +58,7 @@ A reference dictionary for terms that appear throughout this repository's docume
 
 **Negative EV (-EV)** — A bet with negative expected value. All bets with standard bookmaker vig are -EV unless your probability estimate beats the market.
 
-**Closing line value (CLV)** — The difference between the odds you got when placing a bet and the closing line odds. Consistently beating the closing line is one of the strongest indicators that your model has genuine edge. See [`market-efficiency.md`](market-efficiency.md).
+**Closing line value (CLV)** — The difference between the odds you got when placing a bet and the closing line odds. Consistently beating the closing line is one of the strongest indicators that your model has genuine edge. See [`market-efficiency.md`](foundations/market-efficiency.md).
 
 ---
 
@@ -66,7 +66,7 @@ A reference dictionary for terms that appear throughout this repository's docume
 
 **Accuracy** — The percentage of predictions where the model correctly identified the winning outcome. A useful but insufficient metric — a model that always picks favorites may have high accuracy but still lose money.
 
-**Calibration** — How well a model's predicted probabilities match actual observed frequencies. A well-calibrated model that says "60% chance" should be correct about 60% of the time. Poorly calibrated models may be accurate but still unprofitable. See [`calibration.md`](calibration.md).
+**Calibration** — How well a model's predicted probabilities match actual observed frequencies. A well-calibrated model that says "60% chance" should be correct about 60% of the time. Poorly calibrated models may be accurate but still unprofitable. See [`calibration.md`](modeling/calibration.md).
 
 **Brier score** — A metric that measures the mean squared error between predicted probabilities and actual outcomes (0 or 1). Lower is better. Sensitive to both accuracy and calibration.
 
@@ -86,7 +86,7 @@ A reference dictionary for terms that appear throughout this repository's docume
 
 **Unit** — A standard bet size, usually expressed as a percentage of the bankroll (e.g., 1 unit = 1–2% of bankroll). Used to make bet sizing comparable across bettors with different bankroll sizes.
 
-**Kelly Criterion** — A mathematical formula for optimal bet sizing that maximizes long-term bankroll growth. `f = (bp - q) / b`, where `b` = odds received, `p` = win probability, `q` = loss probability. See [`bankroll-management.md`](bankroll-management.md).
+**Kelly Criterion** — A mathematical formula for optimal bet sizing that maximizes long-term bankroll growth. `f = (bp - q) / b`, where `b` = odds received, `p` = win probability, `q` = loss probability. See [`bankroll-management.md`](strategy/bankroll-management.md).
 
 **Full Kelly** — Betting the exact fraction of bankroll the Kelly formula recommends. Mathematically optimal but causes extreme variance in practice.
 
@@ -106,13 +106,13 @@ A reference dictionary for terms that appear throughout this repository's docume
 
 ## Statistical & Machine Learning Concepts
 
-**Poisson distribution** — A probability distribution that models the number of events occurring in a fixed time interval when events are independent and occur at a constant rate. Used to model goal-scoring in soccer. See [`models/poisson.md`](models/poisson.md).
+**Poisson distribution** — A probability distribution that models the number of events occurring in a fixed time interval when events are independent and occur at a constant rate. Used to model goal-scoring in soccer. See [`models/poisson.md`](modeling/models/poisson.md).
 
-**Elo rating** — A numerical system for estimating relative skill between competitors, updated after each game based on the outcome vs. expectation. See [`models/elo.md`](models/elo.md).
+**Elo rating** — A numerical system for estimating relative skill between competitors, updated after each game based on the outcome vs. expectation. See [`models/elo.md`](modeling/models/elo.md).
 
-**Logistic regression** — A statistical model that predicts the probability of a binary outcome (win/loss) from a set of input features. See [`models/logistic-regression.md`](models/logistic-regression.md).
+**Logistic regression** — A statistical model that predicts the probability of a binary outcome (win/loss) from a set of input features. See [`models/logistic-regression.md`](modeling/models/logistic-regression.md).
 
-**Quantile regression** — A regression technique that models a specific quantile (e.g., 25th percentile, 75th percentile) of the outcome distribution rather than just the mean. Useful for spread and totals markets. See [`models/quantile-regression.md`](models/quantile-regression.md).
+**Quantile regression** — A regression technique that models a specific quantile (e.g., 25th percentile, 75th percentile) of the outcome distribution rather than just the mean. Useful for spread and totals markets. See [`models/quantile-regression.md`](modeling/models/quantile-regression.md).
 
 **XGBoost** — A gradient-boosted tree algorithm known for strong performance on tabular data. One of the most commonly cited ML methods in sports prediction research.
 
@@ -120,7 +120,7 @@ A reference dictionary for terms that appear throughout this repository's docume
 
 **Feature engineering** — The process of creating and selecting the input variables given to a model. Research consistently shows this matters more than algorithm choice.
 
-**Monte Carlo simulation** — A computational technique that runs thousands of random simulations to estimate a probability distribution over possible outcomes. See [`monte-carlo.md`](monte-carlo.md).
+**Monte Carlo simulation** — A computational technique that runs thousands of random simulations to estimate a probability distribution over possible outcomes. See [`monte-carlo.md`](modeling/monte-carlo.md).
 
 **Platt scaling** — A post-processing technique that fits a logistic regression on top of a model's raw output scores to improve probability calibration.
 

@@ -40,7 +40,7 @@ Sometimes the market's own movement is an informative feature:
 - Public betting percentages (available from The Action Network, Bet Labs)
 - Sharp money indicators (money percentages vs. ticket percentages)
 
-Use this data carefully — incorporating it as a training feature risks introducing circular logic if your model is trying to improve on the market. See [`market-efficiency.md`](market-efficiency.md).
+Use this data carefully — incorporating it as a training feature risks introducing circular logic if your model is trying to improve on the market. See [`market-efficiency.md`](../foundations/market-efficiency.md).
 
 ### External Contextual Data
 

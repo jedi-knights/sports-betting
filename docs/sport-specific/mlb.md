@@ -6,7 +6,7 @@ Major League Baseball has more games than any other major North American sport �
 
 The MLB regular season runs April through September. Each team plays 162 games. Total betting volume:
 - A single-sport MLB bettor placing one bet per game can accumulate 500–800 bets per season — enough for meaningful statistical conclusions in one or two seasons
-- See [`variance-and-sample-size.md`](../variance-and-sample-size.md)
+- See [`variance-and-sample-size.md`](../foundations/variance-and-sample-size.md)
 
 ### Bet Types
 
@@ -14,7 +14,7 @@ The MLB regular season runs April through September. Each team plays 162 games. 
 - **Run line**: MLB's version of a spread; almost always set at ±1.5 runs. Favorites at -1.5, underdogs at +1.5
 - **Totals**: typically set between 7.5 and 9.5 runs for most games
 - **First 5 innings (F5)**: bets resolved at the end of 5 innings, removing bullpen variance — allows pure starting-pitcher matchup bets
-- **Player props**: pitcher strikeouts, batting stats (see [`prop-betting.md`](../prop-betting.md))
+- **Player props**: pitcher strikeouts, batting stats (see [`prop-betting.md`](../strategy/prop-betting.md))
 
 ### Action vs. Listed Pitcher Rules
 
@@ -71,7 +71,7 @@ For full-game bets, bullpen quality matters significantly once the starter exits
 - **Bullpen ERA / FIP**: aggregate quality of relief pitchers
 - **Recent usage**: a bullpen that has been heavily used in the past 3 days is degraded relative to a rested bullpen
 
-**Fatigue signal**: if the bullpen has thrown 30+ innings in the last 5 days, expect degraded performance. This is especially relevant in playoff scenarios. See [`tournament-and-playoff-modeling.md`](../tournament-and-playoff-modeling.md).
+**Fatigue signal**: if the bullpen has thrown 30+ innings in the last 5 days, expect degraded performance. This is especially relevant in playoff scenarios. See [`tournament-and-playoff-modeling.md`](../strategy/tournament-and-playoff-modeling.md).
 
 ---
 
@@ -95,7 +95,7 @@ Always apply park factor adjustments before comparing team statistics. A team wi
 
 ### Weather Interaction with Parks
 
-See [`weather-modeling.md`](../weather-modeling.md). Wind direction relative to outfield orientation and temperature interact with park dimensions. A wind-out day at Fenway is materially different from a wind-in day at Coors.
+See [`weather-modeling.md`](../modeling/weather-modeling.md). Wind direction relative to outfield orientation and temperature interact with park dimensions. A wind-out day at Fenway is materially different from a wind-in day at Coors.
 
 ---
 

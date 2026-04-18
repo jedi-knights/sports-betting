@@ -14,7 +14,7 @@ A more extreme example: if your model identifies a bet worth placing at any odds
 
 ### Closing Line Value and Shopping
 
-Consistently getting better prices than the closing line (positive CLV) is the strongest evidence of genuine edge. See [`market-efficiency.md`](market-efficiency.md). Line shopping directly improves your CLV by ensuring you always take the highest available price rather than the first available price.
+Consistently getting better prices than the closing line (positive CLV) is the strongest evidence of genuine edge. See [`market-efficiency.md`](../foundations/market-efficiency.md). Line shopping directly improves your CLV by ensuring you always take the highest available price rather than the first available price.
 
 ### Tools for Line Shopping
 

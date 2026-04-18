@@ -34,7 +34,7 @@ NLP approaches (sentiment analysis, entity extraction, event detection) can surf
 
 ## Reinforcement Learning for Bet Sizing
 
-The Kelly Criterion (see [`bankroll-management.md`](bankroll-management.md)) assumes static probability estimates and a single-bet-at-a-time decision. Real betting involves:
+The Kelly Criterion (see [`bankroll-management.md`](../strategy/bankroll-management.md)) assumes static probability estimates and a single-bet-at-a-time decision. Real betting involves:
 
 - A portfolio of simultaneous bets
 - Correlated outcomes

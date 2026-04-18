@@ -103,11 +103,11 @@ Smaller markets (lower-division soccer, college sports, player props) are less e
 
 Even a small consistent edge compounds significantly over thousands of bets. A 2% EV edge on $100 bets placed 1,000 times yields an expected profit of $2,000. The key word is "expected" — variance means actual results will fluctuate around this expectation, especially over shorter sample sizes.
 
-This is why bet sizing and bankroll management (see [`bankroll-management.md`](bankroll-management.md)) are as important as finding edge in the first place.
+This is why bet sizing and bankroll management (see [`bankroll-management.md`](../strategy/bankroll-management.md)) are as important as finding edge in the first place.
 
 ## The Role of Calibration
 
-Finding value requires estimating probabilities accurately. A model that is systematically miscalibrated — for example, one that says "70% probability" when the true rate is only 60% — will identify false value and lead to long-run losses. This is why calibration is arguably the most important property of a betting model. See [`calibration.md`](calibration.md).
+Finding value requires estimating probabilities accurately. A model that is systematically miscalibrated — for example, one that says "70% probability" when the true rate is only 60% — will identify false value and lead to long-run losses. This is why calibration is arguably the most important property of a betting model. See [`calibration.md`](../modeling/calibration.md).
 
 ## Key Takeaways
 

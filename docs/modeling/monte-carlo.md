@@ -69,7 +69,7 @@ Monte Carlo is the standard tool for simulating long-run bankroll trajectories a
 4. Repeat 10,000+ times
 5. Estimate: probability of ruin, expected bankroll after N bets, 5th/95th percentile trajectories
 
-This gives a realistic picture of the range of outcomes rather than just expected value, helping set proper expectations and bankroll buffers. See [`bankroll-management.md`](bankroll-management.md) for context on how these simulations inform bet sizing.
+This gives a realistic picture of the range of outcomes rather than just expected value, helping set proper expectations and bankroll buffers. See [`bankroll-management.md`](../strategy/bankroll-management.md) for context on how these simulations inform bet sizing.
 
 ## Accuracy and Convergence
 

@@ -10,7 +10,7 @@ The NFL season runs approximately September through January (17 regular-season w
 - 13–14 playoff games
 - 1 Super Bowl
 
-At typical betting frequencies, a single-sport NFL bettor may place 200–400 bets per season across spreads, totals, and moneylines. See [`variance-and-sample-size.md`](../variance-and-sample-size.md) for why multiple seasons are needed before drawing conclusions.
+At typical betting frequencies, a single-sport NFL bettor may place 200–400 bets per season across spreads, totals, and moneylines. See [`variance-and-sample-size.md`](../foundations/variance-and-sample-size.md) for why multiple seasons are needed before drawing conclusions.
 
 ### Most Liquid Markets
 
@@ -37,7 +37,7 @@ The most important key numbers are **3** and **7**. A spread at exactly 3.0 is w
 
 ### Practical Implication
 
-When shopping lines (see [`line-shopping-and-account-management.md`](../line-shopping-and-account-management.md)):
+When shopping lines (see [`line-shopping-and-account-management.md`](../strategy/line-shopping-and-account-management.md)):
 - Getting Team A -2.5 vs. -3.5 is a significant difference — a 3-point final margin is roughly a 15% probability event
 - Getting Team B +3.5 vs. +3.0 is equally important in the other direction
 - Lines at -3 and -7 tend to be stickier — books hold these numbers longer because the public knows their value
@@ -46,7 +46,7 @@ When shopping lines (see [`line-shopping-and-account-management.md`](../line-sho
 
 ## Weather Effects
 
-Weather has the most measurable impact on NFL totals of any major North American sport. See [`weather-modeling.md`](../weather-modeling.md) for full detail. Summary:
+Weather has the most measurable impact on NFL totals of any major North American sport. See [`weather-modeling.md`](../modeling/weather-modeling.md) for full detail. Summary:
 
 - **Wind > 20 mph**: reduce expected total by 3–5 points; bet unders
 - **Precipitation**: modest negative impact on scoring; modest positive impact on rushing
@@ -117,7 +117,7 @@ In the second half of the season, teams often play multiple divisional games in 
 
 - **DVOA (Defense-adjusted Value Over Average)**: Football Outsiders' signature metric. Measures efficiency relative to league average, adjusted for opponent quality. One of the most predictive publicly available NFL metrics.
 - **EPA (Expected Points Added) per play**: increasingly used as a real-time efficiency metric. Available from nflfastR (free, play-by-play data)
-- **Elo ratings**: See [`models/elo.md`](../models/elo.md) — effective for relative strength but less granular than EPA-based metrics
+- **Elo ratings**: See [`models/elo.md`](../modeling/models/elo.md) — effective for relative strength but less granular than EPA-based metrics
 
 ### Recommended Feature Set (Starting Point)
 

@@ -8,7 +8,7 @@ The NBA regular season runs October through April with approximately 1,230 games
 
 At typical betting frequencies:
 - A single-sport NBA bettor might place 300–600 bets per regular season
-- Multiple seasons are still needed for statistical confidence — see [`variance-and-sample-size.md`](../variance-and-sample-size.md)
+- Multiple seasons are still needed for statistical confidence — see [`variance-and-sample-size.md`](../foundations/variance-and-sample-size.md)
 
 ### Most Common Markets
 

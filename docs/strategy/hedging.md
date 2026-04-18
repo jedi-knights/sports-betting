@@ -118,7 +118,7 @@ Most hedges in practice are placed for emotional reasons:
 - **Loss aversion amplified by proximity**: as the game approaches, the outcome feels more vivid and threatening.
 - **Narrative about "booking a profit"**: mentally accounting for the hedged return as "already secured."
 
-These are all loss aversion and framing effects (see [`psychology-and-discipline.md`](psychology-and-discipline.md)). They cause real expected value sacrifice.
+These are all loss aversion and framing effects (see [`psychology-and-discipline.md`](../foundations/psychology-and-discipline.md)). They cause real expected value sacrifice.
 
 The discipline practice: before hedging, calculate the EV of both the current open position and the potential hedge bet explicitly. If the hedge is negative EV and your bankroll is not materially at risk, do not place it. Write down the calculation before acting.
 

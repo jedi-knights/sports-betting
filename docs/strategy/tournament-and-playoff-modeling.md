@@ -104,7 +104,7 @@ Game 3: away team home → use 1 - p_home
 ...
 ```
 
-This is most naturally handled with Monte Carlo simulation (see [`monte-carlo.md`](monte-carlo.md)) rather than the analytical formula, since the formula assumes constant per-game probability.
+This is most naturally handled with Monte Carlo simulation (see [`monte-carlo.md`](../modeling/monte-carlo.md)) rather than the analytical formula, since the formula assumes constant per-game probability.
 
 ### In-Series Adjustment
 

@@ -116,4 +116,4 @@ Some models incorporate line movement direction as a predictor: if a line moves 
 
 4. **Act early**: edges are largest immediately after lines open and shrink as sharp money moves the market toward efficiency. For some markets, the best odds are gone within minutes of posting.
 
-5. **Expect to be limited**: bookmakers ban or severely limit profitable bettors. Building and maintaining accounts across multiple books is a necessary operational reality for any serious operation. See [`data-and-features.md`](data-and-features.md) for notes on account management.
+5. **Expect to be limited**: bookmakers ban or severely limit profitable bettors. Building and maintaining accounts across multiple books is a necessary operational reality for any serious operation. See [`data-and-features.md`](../modeling/data-and-features.md) for notes on account management.

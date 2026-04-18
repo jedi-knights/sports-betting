@@ -96,7 +96,7 @@ Measures return per unit of risk. Adapted from finance, it is useful for compari
 
 ### Closing Line Value (CLV)
 
-The difference between the odds you (simulated) received and the closing line odds. Consistently positive CLV is a stronger validation signal than raw ROI — see [`market-efficiency.md`](market-efficiency.md) for why.
+The difference between the odds you (simulated) received and the closing line odds. Consistently positive CLV is a stronger validation signal than raw ROI — see [`market-efficiency.md`](../foundations/market-efficiency.md) for why.
 
 ## The Overfitting Problem
 

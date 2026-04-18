@@ -31,7 +31,7 @@ The draw is the defining structural difference between soccer and American sport
 - 27% are draws
 - 27% are away wins
 
-A Poisson model (see [`models/poisson.md`](../models/poisson.md)) naturally produces a draw probability alongside home and away win probabilities. Modeling draws well is crucial — they are where the most profit is available since bookmakers often price them less precisely than the two win outcomes.
+A Poisson model (see [`models/poisson.md`](../modeling/models/poisson.md)) naturally produces a draw probability alongside home and away win probabilities. Modeling draws well is crucial — they are where the most profit is available since bookmakers often price them less precisely than the two win outcomes.
 
 ### Draw Tendencies
 
@@ -134,7 +134,7 @@ For a Poisson model: convert the goal distribution into Asian Handicap probabili
 
 ### The Poisson Framework
 
-The Poisson model described in [`models/poisson.md`](../models/poisson.md) is the foundational approach. The implementation steps for a league model:
+The Poisson model described in [`models/poisson.md`](../modeling/models/poisson.md) is the foundational approach. The implementation steps for a league model:
 
 1. Collect historical results (at minimum 3 seasons; 5+ is better)
 2. Estimate attack and defense strength parameters for each team using maximum likelihood

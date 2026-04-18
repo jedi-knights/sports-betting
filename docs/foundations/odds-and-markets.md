@@ -109,7 +109,7 @@ Example: Team A -7.5 means Team A must win by 8+ points.
 A bet on whether the combined score of both teams will exceed (over) or fall short of (under) a bookmaker-set line.
 
 - Depends on pace, defense, weather conditions, and scoring environment
-- Quantile regression is particularly effective here (see [`models/quantile-regression.md`](models/quantile-regression.md))
+- Quantile regression is particularly effective here (see [`models/quantile-regression.md`](../modeling/models/quantile-regression.md))
 
 ### Props (Proposition Bets)
 

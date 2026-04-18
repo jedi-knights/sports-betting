@@ -125,7 +125,7 @@ Review your model's performance on a fixed schedule (e.g., every 50 bets, or at 
 
 ### The Kelly Discipline
 
-Bet sizes are determined by the Kelly formula applied mechanically. They do not increase because you are on a winning streak. They do not increase to recover losses. They scale down as the bankroll shrinks and up as it grows — but always according to the formula, not your feelings. See [`bankroll-management.md`](bankroll-management.md).
+Bet sizes are determined by the Kelly formula applied mechanically. They do not increase because you are on a winning streak. They do not increase to recover losses. They scale down as the bankroll shrinks and up as it grows — but always according to the formula, not your feelings. See [`bankroll-management.md`](../strategy/bankroll-management.md).
 
 ### Defining Model Failure vs. Variance
 
