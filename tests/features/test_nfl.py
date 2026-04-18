@@ -263,3 +263,78 @@ class TestNFLFeatureExtractorRecentForm:
 
         # Assert — last 5 are all wins
         assert result.features["home_form_5"] == 1.0
+
+
+class TestNFLFeatureExtractorWeather:
+    def test_weather_features_present_in_feature_set(self) -> None:
+        # Arrange
+        extractor = NFLFeatureExtractor()
+        extractor.fit([])
+
+        # Act
+        result = extractor.extract(
+            "game-1",
+            "chiefs",
+            "bears",
+            _dt(7),
+            temperature=32.0,
+            wind_mph=18.0,
+            precipitation=True,
+        )
+
+        # Assert
+        assert "home_temperature" in result.features
+        assert "wind_mph" in result.features
+        assert "is_precipitation" in result.features
+
+    def test_no_weather_gives_neutral_defaults(self) -> None:
+        # Arrange
+        extractor = NFLFeatureExtractor()
+        extractor.fit([])
+
+        # Act — no weather kwargs passed
+        result = extractor.extract("game-1", "chiefs", "bears", _dt(7))
+
+        # Assert
+        assert result.features["home_temperature"] == 60.0
+        assert result.features["wind_mph"] == 0.0
+        assert result.features["is_precipitation"] == 0.0
+
+    def test_wind_feature_passed_through(self) -> None:
+        # Arrange
+        extractor = NFLFeatureExtractor()
+        extractor.fit([])
+
+        # Act
+        result = extractor.extract(
+            "game-1",
+            "chiefs",
+            "bears",
+            _dt(7),
+            wind_mph=20.0,
+        )
+
+        # Assert
+        assert result.features["wind_mph"] == 20.0
+
+    def test_precipitation_feature_is_float(self) -> None:
+        # Arrange
+        extractor = NFLFeatureExtractor()
+        extractor.fit([])
+
+        # Act — no precipitation (default)
+        result_no_precip = extractor.extract("game-1", "chiefs", "bears", _dt(7))
+        # Act — precipitation present
+        result_precip = extractor.extract(
+            "game-2",
+            "chiefs",
+            "bears",
+            _dt(7),
+            precipitation=True,
+        )
+
+        # Assert — is_precipitation is always a float, never a bool
+        assert isinstance(result_no_precip.features["is_precipitation"], float)
+        assert isinstance(result_precip.features["is_precipitation"], float)
+        assert result_no_precip.features["is_precipitation"] == 0.0
+        assert result_precip.features["is_precipitation"] == 1.0

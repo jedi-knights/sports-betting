@@ -66,8 +66,12 @@ class NFLFeatureExtractor:
         home_team: str,
         away_team: str,
         as_of: datetime,
+        *,
+        temperature: float | None = None,
+        wind_mph: float | None = None,
+        precipitation: bool = False,
     ) -> FeatureSet:
-        """Compute Elo, rest-days, and recent-form features for both teams.
+        """Compute Elo, rest-days, recent-form, and weather features for both teams.
 
         All features are computed using only games that completed strictly
         before ``as_of`` to prevent lookahead bias.
@@ -77,11 +81,21 @@ class NFLFeatureExtractor:
             home_team: Home team identifier.
             away_team: Away team identifier.
             as_of: Cutoff timestamp; games at or after this time are excluded.
+            temperature: Air temperature in Fahrenheit at game time. When
+                ``None``, defaults to 60 °F — a neutral indoor-equivalent
+                baseline. NFL weather impact becomes meaningful below ~40 °F.
+            wind_mph: Wind speed in mph at game time. When ``None``, defaults
+                to 0 mph. Wind above ~15 mph suppresses passing efficiency and
+                scoring in open-air stadiums.
+            precipitation: Whether rain or snow was present. Defaults to
+                ``False``. Stored as ``is_precipitation`` (1.0/0.0) in the
+                feature set so it is numerically compatible with all models.
 
         Returns:
             FeatureSet with ``home_elo``, ``away_elo``, ``elo_diff``,
             ``home_rest_days``, ``away_rest_days``, ``home_form_5``,
-            and ``away_form_5``.
+            ``away_form_5``, ``home_temperature``, ``wind_mph``, and
+            ``is_precipitation``.
         """
         model = EloModel(
             k_factor=self._k_factor,
@@ -116,6 +130,9 @@ class NFLFeatureExtractor:
                 "away_rest_days": self._days_since_last_game(away_team, as_of),
                 "home_form_5": self._recent_form(home_team, as_of),
                 "away_form_5": self._recent_form(away_team, as_of),
+                "home_temperature": temperature if temperature is not None else 60.0,
+                "wind_mph": wind_mph if wind_mph is not None else 0.0,
+                "is_precipitation": 1.0 if precipitation else 0.0,
             },
         )
 

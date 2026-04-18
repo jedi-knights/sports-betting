@@ -135,3 +135,83 @@ class TestComputePerformanceReport:
     def test_sharpe_ratio_single_bet_is_zero(self) -> None:
         report = compute_performance_report([_win()])
         assert report.sharpe_ratio == 0.0
+
+    # ------------------------------------------------------------------ #
+    # Calibration metrics (Brier score, log-loss, ECE)                    #
+    # ------------------------------------------------------------------ #
+
+    def test_report_includes_brier_score(self) -> None:
+        # Arrange
+        results = [
+            BetResult("b1", 100.0, 2.0, 0.7, 0.1, True, 100.0),
+            BetResult("b2", 100.0, 2.0, 0.3, 0.1, False, -100.0),
+        ]
+
+        # Act
+        report = compute_performance_report(results)
+
+        # Assert
+        assert isinstance(report.brier_score, float)
+
+    def test_report_brier_score_perfect_predictions(self) -> None:
+        # Arrange — model_prob matches outcome exactly
+        results = [
+            BetResult("b1", 100.0, 2.0, 1.0, 0.1, True, 100.0),
+            BetResult("b2", 100.0, 2.0, 0.0, 0.1, False, -100.0),
+        ]
+
+        # Act
+        report = compute_performance_report(results)
+
+        # Assert
+        assert report.brier_score is not None
+        assert abs(report.brier_score - 0.0) < 1e-9
+
+    def test_report_brier_score_random_predictions(self) -> None:
+        # Arrange — model_prob always 0.5 → Brier score = 0.25
+        results = [
+            BetResult("b1", 100.0, 2.0, 0.5, 0.0, True, 100.0),
+            BetResult("b2", 100.0, 2.0, 0.5, 0.0, False, -100.0),
+        ]
+
+        # Act
+        report = compute_performance_report(results)
+
+        # Assert
+        assert report.brier_score is not None
+        assert abs(report.brier_score - 0.25) < 1e-9
+
+    def test_report_includes_log_loss(self) -> None:
+        # Arrange
+        results = [
+            BetResult("b1", 100.0, 2.0, 0.7, 0.1, True, 100.0),
+            BetResult("b2", 100.0, 2.0, 0.3, 0.1, False, -100.0),
+        ]
+
+        # Act
+        report = compute_performance_report(results)
+
+        # Assert
+        assert isinstance(report.log_loss, float)
+
+    def test_report_includes_calibration_error(self) -> None:
+        # Arrange
+        results = [
+            BetResult("b1", 100.0, 2.0, 0.7, 0.1, True, 100.0),
+            BetResult("b2", 100.0, 2.0, 0.3, 0.1, False, -100.0),
+        ]
+
+        # Act
+        report = compute_performance_report(results)
+
+        # Assert
+        assert isinstance(report.calibration_error, float)
+
+    def test_report_empty_results_gives_none_metrics(self) -> None:
+        # Arrange / Act
+        report = compute_performance_report([])
+
+        # Assert
+        assert report.brier_score is None
+        assert report.log_loss is None
+        assert report.calibration_error is None

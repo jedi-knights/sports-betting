@@ -60,4 +60,8 @@ class CSVDataLoader:
             closing_home_win_odds=float(row["closing_home_win_odds"]),
             closing_away_win_odds=float(row["closing_away_win_odds"]),
             closing_draw_odds=_float_or_none(row["closing_draw_odds"]),
+            temperature=_float_or_none(row.get("temperature", "")),
+            wind_mph=_float_or_none(row.get("wind_mph", "")),
+            precipitation=row.get("precipitation", "").strip().lower()
+            in ("true", "1", "yes"),
         )

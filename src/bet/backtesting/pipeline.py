@@ -12,6 +12,29 @@ from .guard import assert_no_lookahead
 from .types import HistoricalGame
 
 
+def _weather_kwargs(game: HistoricalGame) -> dict:
+    """Build keyword-argument dict of weather data from a HistoricalGame.
+
+    Only populates keys whose values are present so callers that accept
+    ``**weather`` receive neutral extractor defaults when data is absent.
+
+    Args:
+        game: The historical game to extract weather data from.
+
+    Returns:
+        Dict with zero or more of ``temperature``, ``wind_mph``,
+        ``precipitation`` depending on what the game record carries.
+    """
+    kwargs: dict = {}
+    if game.temperature is not None:
+        kwargs["temperature"] = game.temperature
+    if game.wind_mph is not None:
+        kwargs["wind_mph"] = game.wind_mph
+    if game.precipitation:
+        kwargs["precipitation"] = game.precipitation
+    return kwargs
+
+
 class BacktestPipeline:
     """Runs walk-forward validation across a list of historical games.
 
@@ -87,11 +110,13 @@ class BacktestPipeline:
                 continue
 
             try:
+                weather = _weather_kwargs(test_game)
                 features = self._extractor.extract(  # type: ignore[union-attr]
                     test_game.event_id,
                     test_game.home_team,
                     test_game.away_team,
                     as_of=test_game.game_date,
+                    **weather,
                 )
             except Exception:
                 continue
@@ -129,9 +154,11 @@ class BacktestPipeline:
         train_games: list[HistoricalGame],
         train_examples: list[TrainingExample],
     ) -> None:
+        game_lookup = {g.event_id: g for g in train_games}
+
         if not hasattr(self._model, "fit_calibrator"):
             self._extractor.fit(train_examples)  # type: ignore[union-attr]
-            feature_examples = self._populate_features(train_examples)
+            feature_examples = self._populate_features(train_examples, game_lookup)
             self._model.fit(feature_examples or train_examples)
             return
 
@@ -140,7 +167,8 @@ class BacktestPipeline:
         cal_games = train_games[split:]
 
         self._extractor.fit(fit_examples)  # type: ignore[union-attr]
-        self._model.fit(self._populate_features(fit_examples) or fit_examples)
+        populated = self._populate_features(fit_examples, game_lookup)
+        self._model.fit(populated or fit_examples)
 
         if not cal_games:
             return
@@ -155,11 +183,13 @@ class BacktestPipeline:
                 continue
             try:
                 self._extractor.fit(earlier)  # type: ignore[union-attr]
+                cal_weather = _weather_kwargs(cal_game)
                 fs = self._extractor.extract(  # type: ignore[union-attr]
                     cal_game.event_id,
                     cal_game.home_team,
                     cal_game.away_team,
                     as_of=cal_game.game_date,
+                    **cal_weather,
                 )
                 raw = self._model.predict_raw(fs)  # type: ignore[union-attr]
                 probs.append(raw.home_win)
@@ -173,6 +203,7 @@ class BacktestPipeline:
     def _populate_features(
         self,
         examples: list[TrainingExample],
+        game_lookup: dict[str, HistoricalGame] | None = None,
     ) -> list[TrainingExample]:
         """Re-extract features for training examples using the fitted extractor.
 
@@ -180,15 +211,24 @@ class BacktestPipeline:
         Feature-based models (e.g. LogisticRegressionModel) need populated dicts.
         The extractor's as_of guard ensures no lookahead — each example only
         sees games that completed before its own timestamp.
+
+        Args:
+            examples: Training examples whose feature sets need to be populated.
+            game_lookup: Optional mapping from event_id to HistoricalGame,
+                used to thread weather data into each extract call. When
+                ``None`` or when a game is not found, weather defaults apply.
         """
         populated: list[TrainingExample] = []
         for ex in examples:
             try:
+                game = (game_lookup or {}).get(ex.feature_set.event_id)
+                weather = _weather_kwargs(game) if game is not None else {}
                 fs = self._extractor.extract(  # type: ignore[union-attr]
                     ex.feature_set.event_id,
                     ex.feature_set.home_team,
                     ex.feature_set.away_team,
                     as_of=ex.outcome.final_at,
+                    **weather,
                 )
                 populated.append(TrainingExample(feature_set=fs, outcome=ex.outcome))
             except Exception:

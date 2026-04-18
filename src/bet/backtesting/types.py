@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 
@@ -27,6 +27,12 @@ class HistoricalGame:
         closing_home_win_odds: Closing decimal odds for home win (for CLV).
         closing_away_win_odds: Closing decimal odds for away win (for CLV).
         closing_draw_odds: Closing decimal odds for draw. ``None`` for binary sports.
+        temperature: Air temperature in Fahrenheit at game time. ``None`` when
+            not available; the feature extractor defaults to 60 °F in that case.
+        wind_mph: Wind speed in mph at game time. ``None`` when not available;
+            the feature extractor defaults to 0 mph in that case.
+        precipitation: Whether rain or snow was present at game time. Defaults
+            to ``False`` when the data is absent.
     """
 
     event_id: str
@@ -42,3 +48,6 @@ class HistoricalGame:
     closing_home_win_odds: float
     closing_away_win_odds: float
     closing_draw_odds: float | None
+    temperature: float | None = field(default=None)
+    wind_mph: float | None = field(default=None)
+    precipitation: bool = field(default=False)

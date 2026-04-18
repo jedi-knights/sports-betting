@@ -113,6 +113,12 @@ def backtest(
     click.echo(f"  Sharpe   : {report.sharpe_ratio:.3f}")
     if report.avg_clv is not None:
         click.echo(f"  Avg CLV  : {report.avg_clv:.4f}")
+    if report.brier_score is not None:
+        click.echo(f"  Brier    : {report.brier_score:.4f}")
+    if report.log_loss is not None:
+        click.echo(f"  Log loss : {report.log_loss:.4f}")
+    if report.calibration_error is not None:
+        click.echo(f"  Cal err  : {report.calibration_error:.4f}")
 
     if output:
         report_dict = asdict(report)

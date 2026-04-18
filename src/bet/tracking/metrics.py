@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import statistics
 
+from bet.calibration.metrics import brier_score as _brier_score
+from bet.calibration.metrics import expected_calibration_error as _ece
+from bet.calibration.metrics import log_loss as _log_loss
+
 from .types import BetResult, PerformanceReport
 
 
@@ -11,10 +15,12 @@ def compute_performance_report(results: list[BetResult]) -> PerformanceReport:
     """Compute aggregate performance statistics from a list of settled bets.
 
     Args:
-        results: Settled bet outcomes. Empty list returns a zero report.
+        results: Settled bet outcomes. Empty list returns a zero report with
+            all calibration fields set to None.
 
     Returns:
-        PerformanceReport with ROI, win rate, drawdown, Sharpe, and CLV stats.
+        PerformanceReport with ROI, win rate, drawdown, Sharpe, CLV, and
+        calibration stats (Brier score, log-loss, ECE).
     """
     if not results:
         return PerformanceReport(
@@ -42,6 +48,9 @@ def compute_performance_report(results: list[BetResult]) -> PerformanceReport:
     clvs = [r.clv for r in results if r.clv is not None]
     avg_clv = sum(clvs) / len(clvs) if clvs else None
 
+    probs = [r.model_prob for r in results]
+    outcomes = [int(r.won) for r in results]
+
     return PerformanceReport(
         total_bets=total_bets,
         won_bets=won_bets,
@@ -53,6 +62,9 @@ def compute_performance_report(results: list[BetResult]) -> PerformanceReport:
         max_drawdown=_max_drawdown(pnls),
         sharpe_ratio=_sharpe_ratio(pnls),
         avg_clv=avg_clv,
+        brier_score=_brier_score(probs, outcomes),
+        log_loss=_log_loss(probs, outcomes),
+        calibration_error=_ece(probs, outcomes),
     )
 
 

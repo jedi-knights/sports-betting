@@ -45,6 +45,12 @@ class PerformanceReport:
         max_drawdown: Largest peak-to-trough drop in cumulative P&L.
         sharpe_ratio: mean(pnl) / std(pnl) per bet. 0.0 when std is zero.
         avg_clv: Mean closing line value. None when no CLV data is available.
+        brier_score: Mean squared error between model probabilities and
+            outcomes. None when results is empty.
+        log_loss: Negative log-likelihood between model probabilities and
+            outcomes. None when results is empty.
+        calibration_error: Expected calibration error (ECE) across 10 bins.
+            None when results is empty.
     """
 
     total_bets: int
@@ -57,3 +63,6 @@ class PerformanceReport:
     max_drawdown: float
     sharpe_ratio: float
     avg_clv: float | None
+    brier_score: float | None = None
+    log_loss: float | None = None
+    calibration_error: float | None = None

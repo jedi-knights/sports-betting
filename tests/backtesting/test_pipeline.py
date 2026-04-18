@@ -8,8 +8,10 @@ from datetime import UTC, datetime, timedelta
 from bet.backtesting.pipeline import BacktestPipeline
 from bet.backtesting.types import HistoricalGame
 from bet.features.nfl import NFLFeatureExtractor
+from bet.features.soccer import SoccerFeatureExtractor
 from bet.modeling.elo import EloModel
 from bet.modeling.logistic import LogisticRegressionModel
+from bet.modeling.poisson import PoissonModel
 from bet.sizing.kelly import KellySizer
 from bet.tracking.metrics import compute_performance_report
 from bet.tracking.types import BetResult
@@ -199,4 +201,171 @@ class TestBacktestPipelineRun:
             f"Dominant should be predicted as a strong favourite (>0.75) "
             f"after 15 wins, but model_prob={home_result.model_prob:.4f}. "
             "Likely cause: extractor.fit() is never called by the pipeline."
+        )
+
+
+def _make_soccer_games(n: int = 40, seed: int = 99) -> list[HistoricalGame]:
+    """Build a soccer-style game fixture with 3-way markets and low-scoring outcomes.
+
+    Odds are realistic decimal values whose implied probabilities sum to ~1.04
+    (a 4% vig), ensuring a genuine bookmaker margin without exotic values.
+
+    Draw odds of 4.00 (implied ~0.25) are intentionally generous relative to
+    the Poisson model's typical draw probability (~26-30%), so that at least
+    some games produce draw-side value bets when ``min_edge=0.0``.
+
+    Args:
+        n: Number of games to generate.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        A list of soccer HistoricalGame instances sorted by game_date.
+    """
+    rng = random.Random(seed)
+    teams = ["Arsenal", "Chelsea", "Liverpool", "ManCity", "Spurs", "United"]
+    base = datetime(2023, 8, 12, 15, 0, 0, tzinfo=UTC)
+    games = []
+    for i in range(n):
+        home = teams[i % len(teams)]
+        away = teams[(i + 2) % len(teams)]
+        game_date = base + timedelta(weeks=i // 3)
+        games.append(
+            HistoricalGame(
+                event_id=f"soccer-{i}",
+                sport="soccer",
+                home_team=home,
+                away_team=away,
+                game_date=game_date,
+                home_score=rng.randint(0, 4),
+                away_score=rng.randint(0, 4),
+                home_win_odds=2.40,
+                away_win_odds=3.10,
+                draw_odds=3.30,
+                closing_home_win_odds=2.35,
+                closing_away_win_odds=3.05,
+                closing_draw_odds=3.25,
+            )
+        )
+    return games
+
+
+def _make_soccer_pipeline(
+    min_edge: float = 0.0, min_train: int = 10
+) -> BacktestPipeline:
+    """Construct a BacktestPipeline wired for the soccer / Poisson path.
+
+    Uses ``SoccerFeatureExtractor`` and ``PoissonModel`` explicitly — the same
+    combination the CLI selects for ``--sport soccer``.
+
+    Args:
+        min_edge: Minimum EV threshold forwarded to ``MinimumEdgeDetector``.
+        min_train: Minimum training games before predictions are made.
+
+    Returns:
+        A configured BacktestPipeline ready to run soccer games.
+    """
+    return BacktestPipeline(
+        model=PoissonModel(),
+        extractor=SoccerFeatureExtractor(),
+        detector=MinimumEdgeDetector(min_edge=min_edge),
+        sizer=KellySizer(fraction=0.25),
+        bankroll=1000.0,
+        min_train_games=min_train,
+    )
+
+
+class TestBacktestPipelineSoccer:
+    """Integration tests for the soccer / Poisson backtest path.
+
+    Each test exercises the end-to-end pipeline with soccer-style fixtures:
+    3-way markets (home / draw / away), decimal-odds inputs, and low integer
+    scores. The class mirrors ``TestBacktestPipelineRun`` for the NFL path.
+    """
+
+    def test_soccer_pipeline_returns_list(self) -> None:
+        """Pipeline run returns a list for any non-empty soccer game set."""
+        # Arrange
+        pipeline = _make_soccer_pipeline()
+
+        # Act
+        result = pipeline.run(_make_soccer_games(40))
+
+        # Assert
+        assert isinstance(result, list)
+
+    def test_soccer_pipeline_bets_are_bet_result_instances(self) -> None:
+        """Every element returned by the pipeline is a BetResult."""
+        # Arrange
+        pipeline = _make_soccer_pipeline(min_edge=0.0, min_train=10)
+
+        # Act
+        results = pipeline.run(_make_soccer_games(40))
+
+        # Assert
+        assert all(isinstance(r, BetResult) for r in results)
+
+    def test_soccer_pipeline_produces_bets(self) -> None:
+        """Pipeline detects at least one value bet across 40 soccer games.
+
+        With min_edge=0.0 the detector flags any game where the Poisson model
+        assigns higher probability than the market's implied probability. The
+        fixture produces 40 games — enough training data for the model to
+        estimate realistic baselines and surface positive-EV opportunities.
+        """
+        # Arrange
+        pipeline = _make_soccer_pipeline(min_edge=0.0, min_train=10)
+
+        # Act
+        results = pipeline.run(_make_soccer_games(40))
+
+        # Assert
+        assert len(results) > 0, (
+            "Soccer / Poisson pipeline returned 0 bets with min_edge=0.0 and "
+            "40 games. The model or extractor is likely not producing predictions."
+        )
+
+    def test_soccer_draw_bets_possible(self) -> None:
+        """At least one bet with a _draw suffix appears in the results.
+
+        PoissonModel computes an explicit draw probability; the pipeline
+        converts it to a market line when draw_odds is not None. With generous
+        draw odds (3.30 implied ~0.303 vs. Poisson draw ~25-30%) and
+        min_edge=0.0 at least some games should show a draw edge.
+
+        The fixture uses draw_odds=3.30. The Poisson model's draw probability
+        depends on fitted baselines, so we use a larger game set (40 games)
+        with a fixed seed that is known to produce at least one draw bet.
+        """
+        # Arrange — use a seed and game count calibrated to guarantee a draw bet
+        games = _make_soccer_games(n=40, seed=99)
+        # Lower the draw market price slightly to widen the edge window
+        draw_boosted = [
+            HistoricalGame(
+                event_id=g.event_id,
+                sport=g.sport,
+                home_team=g.home_team,
+                away_team=g.away_team,
+                game_date=g.game_date,
+                home_score=g.home_score,
+                away_score=g.away_score,
+                home_win_odds=g.home_win_odds,
+                away_win_odds=g.away_win_odds,
+                draw_odds=4.00,  # implied 0.25 — well below typical Poisson draw
+                closing_home_win_odds=g.closing_home_win_odds,
+                closing_away_win_odds=g.closing_away_win_odds,
+                closing_draw_odds=4.00,
+            )
+            for g in games
+        ]
+        pipeline = _make_soccer_pipeline(min_edge=0.0, min_train=10)
+
+        # Act
+        results = pipeline.run(draw_boosted)
+
+        # Assert
+        draw_bets = [r for r in results if r.bet_id.endswith("_draw")]
+        assert len(draw_bets) > 0, (
+            "No _draw bets detected. PoissonModel should produce draw probabilities "
+            "above 0.25 for some games; check that draw_odds lines are forwarded "
+            "through _to_market_lines() and that the detector handles side='draw'."
         )
