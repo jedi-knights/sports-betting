@@ -18,13 +18,21 @@ func main() {
 
 	sport := marketdata.Sport(envOr("SPORT", "nfl"))
 	season := envOr("SEASON", "2024")
-	dataPath := envOr("DATA_PATH", "/data/odds.csv")
 	pollInterval := durationEnv("POLL_INTERVAL_SECONDS", 60)
 
-	provider, err := marketdata.NewStaticOddsProvider(dataPath)
-	if err != nil {
-		logger.Error("loading odds provider", "path", dataPath, "error", err)
-		os.Exit(1)
+	var provider marketdata.OddsProvider
+	if apiKey := os.Getenv("ODDS_API_KEY"); apiKey != "" {
+		provider = marketdata.NewTheOddsAPIProvider(apiKey)
+		logger.Info("using live odds provider", "source", "the-odds-api.com")
+	} else {
+		dataPath := envOr("DATA_PATH", "/data/odds.json")
+		p, err := marketdata.NewStaticOddsProvider(dataPath)
+		if err != nil {
+			logger.Error("loading static odds provider", "path", dataPath, "error", err)
+			os.Exit(1)
+		}
+		provider = p
+		logger.Info("using static odds provider", "path", dataPath)
 	}
 	store := marketdata.NewMemoryLineStore()
 
