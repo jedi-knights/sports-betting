@@ -46,30 +46,83 @@ All research and reference material lives under [`docs/`](docs/). Start with the
 
 ## Requirements
 
-N/A — no implementation exists yet. Requirements will be defined as the project takes shape.
+- **Go** 1.22+ — backend services and domain logic
+- **Python** 3.12+ with [uv](https://docs.astral.sh/uv/) — CLI tooling and modeling
+- **Docker** + **Docker Compose** — local infrastructure (PostgreSQL)
 
 ## Installation
-
-N/A — no installable package exists yet.
-
-## Usage
-
-N/A — no runnable code exists yet.
-
-## Configuration
-
-N/A — no configuration options defined yet.
-
-## Development
-
-Clone the repository:
 
 ```bash
 git clone https://github.com/jedi-knights/sports-betting.git
 cd sports-betting
 ```
 
-No build or test steps are defined yet. Contributions that establish the project structure are welcome.
+Set up Go dependencies:
+
+```bash
+go mod tidy
+```
+
+Set up the Python CLI:
+
+```bash
+uv sync
+```
+
+Copy and fill in environment variables:
+
+```bash
+cp .env.example .env
+```
+
+Start the local database:
+
+```bash
+docker compose up -d
+```
+
+> **Note:** `docker compose down` stops containers but preserves data in the `postgres_data` named volume. Use `docker compose down -v` to also remove the volume and reset all data.
+
+## Usage
+
+The `bet` CLI is the primary interface for running backtests and paper trading. Commands are added as each phase is implemented.
+
+```bash
+# Show available commands
+uv run bet --help
+```
+
+## Configuration
+
+All configuration is read from environment variables. Copy `.env.example` to `.env` and fill in values. Key variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POSTGRES_DB` | `sportsbetting` | Database name |
+| `POSTGRES_USER` | `sportsbetting` | Database user |
+| `POSTGRES_PASSWORD` | `changeme` | Database password |
+| `POSTGRES_PORT` | `5432` | Exposed port on the host |
+| `PAPER_TRADE_MIN_EDGE` | `0.03` | Minimum edge (3%) before recording a paper bet |
+| `PAPER_TRADE_KELLY_FRACTION` | `0.25` | Kelly fraction for paper bet sizing |
+| `PAPER_TRADE_STARTING_BANKROLL` | `10000` | Starting paper bankroll in USD |
+
+See `.env.example` for the full list.
+
+## Development
+
+Run Go tests:
+
+```bash
+go test ./...
+```
+
+Run Python tests:
+
+```bash
+uv run pytest
+```
+
+The Go module is at the repository root. Domain packages live under `internal/`. Python source lives under `src/bet/`; Python tests live under `tests/`.
 
 ## Contributing
 

@@ -1,0 +1,47 @@
+{
+  "books": [
+    {"id": "pinnacle", "name": "Pinnacle", "type": "sharp"}
+  ],
+  "events": [
+    {
+      "id": "nfl-2023-week1-kc-chi",
+      "sport": "nfl",
+      "home_team": "Kansas City Chiefs",
+      "away_team": "Chicago Bears",
+      "starts_at": "2023-09-07T18:20:00Z",
+      "season": "2023",
+      "week": 1,
+      "venue": "Arrowhead Stadium"
+    }
+  ],
+  "markets": [
+    {
+      "id": "nfl-2023-week1-kc-chi-ml",
+      "event_id": "nfl-2023-week1-kc-chi",
+      "type": "moneyline",
+      "created_at": "2023-09-07T10:00:00Z"
+    }
+  ],
+  "lines": [
+    {
+      "id": "line-kc-home",
+      "market_id": "nfl-2023-week1-kc-chi-ml",
+      "book_id": "pinnacle",
+      "side": "home",
+      "label": "Kansas City Chiefs",
+      "american_odds": -200,
+      "recorded_at": "2023-09-07T10:00:00Z",
+      "is_closing": false
+    },
+    {
+      "id": "line-chi-away",
+      "market_id": "nfl-2023-week1-kc-chi-ml",
+      "book_id": "pinnacle",
+      "side": "away",
+      "label": "Chicago Bears",
+      "american_odds": 170,
+      "recorded_at": "2023-09-07T10:00:00Z",
+      "is_closing": false
+    }
+  ]
+}

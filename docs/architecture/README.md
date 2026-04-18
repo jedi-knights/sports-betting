@@ -176,39 +176,39 @@ Work through phases in order. Check off each item when complete. Do not advance 
 ### Phase 1 — Foundation & Market Data
 
 **Project scaffold**
-- [ ] Initialize Go module (`go.mod`) at repository root
-- [ ] Initialize Python project (`pyproject.toml` + `uv`) for CLI tooling
-- [ ] Create `.gitignore` covering: `data/`, `.env`, `*.env`, build artifacts, `__pycache__`, `.venv`
-- [ ] Create `.env.example` documenting all required environment variables with placeholder values
+- [x] Initialize Go module (`go.mod`) at repository root
+- [x] Initialize Python project (`pyproject.toml` + `uv`) for CLI tooling
+- [x] Create `.gitignore` covering: `data/`, `.env`, `*.env`, build artifacts, `__pycache__`, `.venv`
+- [x] Create `.env.example` documenting all required environment variables with placeholder values
 
 **Infrastructure (Docker)**
-- [ ] Create `docker-compose.yml` at repository root with a PostgreSQL service and named volume
-- [ ] Declare `postgres_data` named volume in `docker-compose.yml` for database persistence
-- [ ] Add PostgreSQL healthcheck so dependent services wait for readiness
+- [x] Create `docker-compose.yml` at repository root with a PostgreSQL service and named volume
+- [x] Declare `postgres_data` named volume in `docker-compose.yml` for database persistence
+- [x] Add PostgreSQL healthcheck so dependent services wait for readiness
 - [ ] Verify `docker compose up` starts Postgres and persists data across `docker compose down` / `up` cycles
 
 **Market Data domain**
-- [ ] Define odds format types in Go: `AmericanOdds`, `DecimalOdds`, `FractionalOdds`, `ImpliedProbability`
-- [ ] Implement odds conversion functions: American → Decimal → Implied Probability → Decimal
-- [ ] Define `Market`, `Line`, `Book`, `Odds` domain types in Go
-- [ ] Implement devig (Shin method or basic proportional removal) to extract true market probability
-- [ ] Define `OddsProvider` port interface in Go
-- [ ] Define `LineStore` port interface in Go
-- [ ] Implement `StaticOddsProvider` (reads from CSV/JSON files) for use in backtesting
-- [ ] Implement in-memory `LineStore` for testing
-- [ ] Unit tests for all odds conversion and devig logic
+- [x] Define odds format types in Go: `AmericanOdds`, `DecimalOdds`, `FractionalOdds`, `ImpliedProbability`
+- [x] Implement odds conversion functions: American → Decimal → Implied Probability → Decimal
+- [x] Define `Market`, `Line`, `Book`, `Odds` domain types in Go
+- [x] Implement devig (Shin method or basic proportional removal) to extract true market probability
+- [x] Define `OddsProvider` port interface in Go
+- [x] Define `LineStore` port interface in Go
+- [x] Implement `StaticOddsProvider` (reads from CSV/JSON files) for use in backtesting
+- [x] Implement in-memory `LineStore` for testing
+- [x] Unit tests for all odds conversion and devig logic
 
 ### Phase 2 — Statistical Modeling
 
-- [ ] Define `ProbabilityEstimate` and `FeatureSet` types (Python)
-- [ ] Define `Model` protocol (Python): `fit(data)` / `predict(features) -> ProbabilityEstimate`
-- [ ] Define `FeatureExtractor` protocol (Python): per-sport feature pipeline abstraction
-- [ ] Implement Elo model (NFL baseline): rating update, expected score, win probability
-- [ ] Implement Elo feature extractor for NFL
-- [ ] Implement Poisson model: attack/defense strength estimation, Dixon-Coles correction
-- [ ] Implement Poisson feature extractor for soccer
-- [ ] Implement logistic regression model: log-loss training objective, L2 regularization
-- [ ] Unit tests for each model and feature extractor
+- [x] Define `ProbabilityEstimate` and `FeatureSet` types (Python)
+- [x] Define `Model` protocol (Python): `fit(data)` / `predict(features) -> ProbabilityEstimate`
+- [x] Define `FeatureExtractor` protocol (Python): per-sport feature pipeline abstraction
+- [x] Implement Elo model (NFL baseline): rating update, expected score, win probability
+- [x] Implement Elo feature extractor for NFL
+- [x] Implement Poisson model: attack/defense strength estimation, Dixon-Coles correction
+- [x] Implement Poisson feature extractor for soccer
+- [x] Implement logistic regression model: log-loss training objective, L2 regularization
+- [x] Unit tests for each model and feature extractor
 
 ### Phase 3 — Calibration
 
