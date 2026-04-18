@@ -8,12 +8,13 @@ import (
 
 func TestGameResult_WinningSide(t *testing.T) {
 	tests := []struct {
-		name      string
+		name       string
 		home, away int
-		want      marketdata.Side
+		want       marketdata.Side
 	}{
 		{"home wins", 110, 105, marketdata.SideHome},
 		{"away wins", 98, 107, marketdata.SideAway},
+		{"draw", 100, 100, marketdata.SideDraw},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -28,18 +29,5 @@ func TestGameResult_WinningSide(t *testing.T) {
 				t.Errorf("WinningSide() = %q, want %q", got, tc.want)
 			}
 		})
-	}
-}
-
-func TestGameResult_WinningSide_Draw(t *testing.T) {
-	// Arrange
-	r := marketdata.GameResult{HomeScore: 100, AwayScore: 100}
-
-	// Act
-	got := r.WinningSide()
-
-	// Assert
-	if got != marketdata.SideDraw {
-		t.Errorf("WinningSide() = %q, want draw", got)
 	}
 }

@@ -1,6 +1,7 @@
 package bettracking
 
 import (
+	"context"
 	"encoding/csv"
 	"fmt"
 	"os"
@@ -36,6 +37,10 @@ func NewCSVBetStore(path string) (*CSVBetStore, error) {
 			return nil, writeErr
 		}
 		w.Flush()
+		if flushErr := w.Error(); flushErr != nil {
+			_ = f.Close()
+			return nil, flushErr
+		}
 		if err := f.Close(); err != nil {
 			return nil, err
 		}
@@ -44,7 +49,7 @@ func NewCSVBetStore(path string) (*CSVBetStore, error) {
 }
 
 // Save appends a new bet row. Returns ErrDuplicateID if the ID already exists.
-func (s *CSVBetStore) Save(bet Bet) error {
+func (s *CSVBetStore) Save(_ context.Context, bet Bet) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -76,7 +81,7 @@ func (s *CSVBetStore) Save(bet Bet) error {
 }
 
 // FindByID returns the bet with the given ID. Returns ErrNotFound if absent.
-func (s *CSVBetStore) FindByID(id string) (Bet, error) {
+func (s *CSVBetStore) FindByID(_ context.Context, id string) (Bet, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	all, err := s.readAll()
@@ -92,14 +97,14 @@ func (s *CSVBetStore) FindByID(id string) (Bet, error) {
 }
 
 // FindAll returns all stored bets in file order.
-func (s *CSVBetStore) FindAll() ([]Bet, error) {
+func (s *CSVBetStore) FindAll(_ context.Context) ([]Bet, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.readAll()
 }
 
 // FindByStatus returns all bets matching the given status.
-func (s *CSVBetStore) FindByStatus(status BetStatus) ([]Bet, error) {
+func (s *CSVBetStore) FindByStatus(_ context.Context, status BetStatus) ([]Bet, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	all, err := s.readAll()
@@ -116,7 +121,7 @@ func (s *CSVBetStore) FindByStatus(status BetStatus) ([]Bet, error) {
 }
 
 // Update replaces an existing bet in the file. Returns ErrNotFound if absent.
-func (s *CSVBetStore) Update(bet Bet) error {
+func (s *CSVBetStore) Update(_ context.Context, bet Bet) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	all, err := s.readAll()
@@ -138,7 +143,7 @@ func (s *CSVBetStore) Update(bet Bet) error {
 }
 
 // FindByEventID returns all bets associated with the given event ID.
-func (s *CSVBetStore) FindByEventID(eventID string) ([]Bet, error) {
+func (s *CSVBetStore) FindByEventID(_ context.Context, eventID string) ([]Bet, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	all, err := s.readAll()
@@ -155,7 +160,7 @@ func (s *CSVBetStore) FindByEventID(eventID string) ([]Bet, error) {
 }
 
 // Resolve marks a bet won or lost and rewrites the file.
-func (s *CSVBetStore) Resolve(betID string, won bool) error {
+func (s *CSVBetStore) Resolve(_ context.Context, betID string, won bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	all, err := s.readAll()
@@ -181,7 +186,11 @@ func (s *CSVBetStore) Resolve(betID string, won bool) error {
 }
 
 // ResolveCLV computes and stores the closing line value, then rewrites the file.
-func (s *CSVBetStore) ResolveCLV(betID string, closingDecimalOdds float64) error {
+// Returns an error if closingDecimalOdds or the bet's DecimalOdds are not positive.
+func (s *CSVBetStore) ResolveCLV(_ context.Context, betID string, closingDecimalOdds float64) error {
+	if closingDecimalOdds <= 0 {
+		return fmt.Errorf("ResolveCLV: closingDecimalOdds must be positive, got %v", closingDecimalOdds)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	all, err := s.readAll()
@@ -191,6 +200,9 @@ func (s *CSVBetStore) ResolveCLV(betID string, closingDecimalOdds float64) error
 	found := false
 	for i, b := range all {
 		if b.ID == betID {
+			if b.DecimalOdds <= 0 {
+				return fmt.Errorf("ResolveCLV: bet %s has invalid DecimalOdds %v", betID, b.DecimalOdds)
+			}
 			clv := 1.0/closingDecimalOdds - 1.0/b.DecimalOdds
 			all[i].CLV = &clv
 			found = true
@@ -229,44 +241,58 @@ func (s *CSVBetStore) readAll() ([]Bet, error) {
 	return bets, nil
 }
 
+// writeAll writes all bets to a temporary file then atomically renames it over
+// the real path. This prevents data loss if a write fails mid-way — the original
+// file is never truncated until all rows have been successfully flushed.
 func (s *CSVBetStore) writeAll(bets []Bet) error {
-	f, err := os.Create(s.path)
+	tmp := s.path + ".tmp"
+	f, err := os.Create(tmp)
 	if err != nil {
 		return err
 	}
 	w := csv.NewWriter(f)
 	if err := w.Write(csvHeader); err != nil {
 		_ = f.Close()
+		_ = os.Remove(tmp)
 		return err
 	}
 	for _, b := range bets {
 		if err := w.Write(betToRow(b)); err != nil {
 			_ = f.Close()
+			_ = os.Remove(tmp)
 			return err
 		}
 	}
 	w.Flush()
 	if flushErr := w.Error(); flushErr != nil {
 		_ = f.Close()
+		_ = os.Remove(tmp)
 		return flushErr
 	}
-	return f.Close()
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return os.Rename(tmp, s.path)
 }
 
+// betToRow serialises a Bet to a CSV row. Stakes, odds, and probabilities use
+// 4 decimal places for readability. CLV uses full precision ('g' format) because
+// it is a differential that can be very small and must round-trip exactly.
 func betToRow(b Bet) []string {
 	clv := ""
 	if b.CLV != nil {
-		clv = strconv.FormatFloat(*b.CLV, 'f', 10, 64)
+		clv = strconv.FormatFloat(*b.CLV, 'g', -1, 64)
 	}
 	return []string{
 		b.ID,
 		b.EventID,
 		b.MarketID,
 		b.Side,
-		strconv.FormatFloat(b.Stake, 'f', 10, 64),
-		strconv.FormatFloat(b.DecimalOdds, 'f', 10, 64),
-		strconv.FormatFloat(b.ModelProb, 'f', 10, 64),
-		strconv.FormatFloat(b.Edge, 'f', 10, 64),
+		strconv.FormatFloat(b.Stake, 'f', 4, 64),
+		strconv.FormatFloat(b.DecimalOdds, 'f', 4, 64),
+		strconv.FormatFloat(b.ModelProb, 'f', 4, 64),
+		strconv.FormatFloat(b.Edge, 'f', 4, 64),
 		b.PlacedAt.UTC().Format(time.RFC3339),
 		string(b.Status),
 		clv,

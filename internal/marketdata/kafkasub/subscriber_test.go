@@ -2,8 +2,8 @@ package kafkasub_test
 
 import (
 	"context"
-	"os"
-	"strings"
+	"io"
+	"log/slog"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -11,21 +11,17 @@ import (
 	"github.com/jedi-knights/sports-betting/internal/marketdata"
 	"github.com/jedi-knights/sports-betting/internal/marketdata/kafkapub"
 	"github.com/jedi-knights/sports-betting/internal/marketdata/kafkasub"
+	"github.com/jedi-knights/sports-betting/internal/marketdata/kafkatest"
 )
 
-func brokers(t *testing.T) []string {
-	t.Helper()
-	v := os.Getenv("TEST_KAFKA_BROKERS")
-	if v == "" {
-		t.Skip("TEST_KAFKA_BROKERS not set — skipping Kafka integration test")
-	}
-	return strings.Split(v, ",")
+func discardLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
 // TestScoresSubscriber_ReceivesPublishedEvent verifies round-trip publish/consume
 // of GameCompletedEvent through a real Kafka broker.
 func TestScoresSubscriber_ReceivesPublishedEvent(t *testing.T) {
-	addrs := brokers(t)
+	addrs := kafkatest.Brokers(t)
 	topic := "test.scores." + t.Name()
 	group := "test-scores-group-" + t.Name()
 
@@ -35,11 +31,18 @@ func TestScoresSubscriber_ReceivesPublishedEvent(t *testing.T) {
 	}
 	defer func() { _ = pub.Close() }()
 
-	sub, err := kafkasub.NewScoresSubscriber(addrs, group, topic)
+	sub, err := kafkasub.NewScoresSubscriber(addrs, group, topic, discardLogger())
 	if err != nil {
 		t.Fatalf("scores subscriber: %v", err)
 	}
-	defer func() { _ = sub.Close() }()
+	defer func() {
+		if err := sub.Close(); err != nil {
+			t.Errorf("closing scores subscriber: %v", err)
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 
 	event := marketdata.GameCompletedEvent{
 		Result: marketdata.GameResult{
@@ -51,14 +54,11 @@ func TestScoresSubscriber_ReceivesPublishedEvent(t *testing.T) {
 		},
 		RecordedAt: time.Now(),
 	}
-	if err := pub.PublishGameCompleted(context.Background(), event); err != nil {
+	if err := pub.PublishGameCompleted(ctx, event); err != nil {
 		t.Fatalf("publish: %v", err)
 	}
 
 	var received atomic.Int32
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
 	go func() {
 		_ = sub.Subscribe(ctx, func(_ context.Context, e marketdata.GameCompletedEvent) error {
 			if e.Result.EventID == event.Result.EventID {
@@ -76,7 +76,7 @@ func TestScoresSubscriber_ReceivesPublishedEvent(t *testing.T) {
 }
 
 func TestKafkaSubscriber_ReceivesPublishedEvent(t *testing.T) {
-	addrs := brokers(t)
+	addrs := kafkatest.Brokers(t)
 	topic := "test.sub." + t.Name()
 	group := "test-group-" + t.Name()
 
@@ -86,11 +86,18 @@ func TestKafkaSubscriber_ReceivesPublishedEvent(t *testing.T) {
 	}
 	defer func() { _ = pub.Close() }()
 
-	sub, err := kafkasub.New(addrs, group, topic)
+	sub, err := kafkasub.New(addrs, group, topic, discardLogger())
 	if err != nil {
 		t.Fatalf("subscriber: %v", err)
 	}
-	defer func() { _ = sub.Close() }()
+	defer func() {
+		if err := sub.Close(); err != nil {
+			t.Errorf("closing subscriber: %v", err)
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 
 	event := marketdata.LinesUpdatedEvent{
 		MarketID:   "m1",
@@ -98,14 +105,11 @@ func TestKafkaSubscriber_ReceivesPublishedEvent(t *testing.T) {
 		RecordedAt: time.Now(),
 		Lines:      []marketdata.Line{{ID: "l1", MarketID: "m1", Side: marketdata.SideHome}},
 	}
-	if err := pub.PublishLinesUpdated(context.Background(), event); err != nil {
+	if err := pub.PublishLinesUpdated(ctx, event); err != nil {
 		t.Fatalf("publish: %v", err)
 	}
 
 	var received atomic.Int32
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
 	go func() {
 		_ = sub.Subscribe(ctx, func(_ context.Context, e marketdata.LinesUpdatedEvent) error {
 			if e.MarketID == event.MarketID {

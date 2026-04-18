@@ -13,7 +13,8 @@ import (
 )
 
 // TestLivePlacementIntegration exercises the full stack:
-//   SafeBookmakerClient → PinnacleClient → BetStore → CLV resolution.
+//
+//	SafeBookmakerClient → PinnacleClient → BetStore → CLV resolution.
 func TestLivePlacementIntegration(t *testing.T) {
 	// Arrange: mock Pinnacle server
 	mux := http.NewServeMux()
@@ -70,12 +71,12 @@ func TestLivePlacementIntegration(t *testing.T) {
 		DecimalOdds: resp.DecimalOdds,
 		Status:      bettracking.BetStatusOpen,
 	}
-	if err := betStore.Save(bet); err != nil {
+	if err := betStore.Save(ctx, bet); err != nil {
 		t.Fatalf("Save bet: %v", err)
 	}
 
 	// Assert: bet recorded correctly
-	saved, err := betStore.FindByID(resp.BetID)
+	saved, err := betStore.FindByID(ctx, resp.BetID)
 	if err != nil {
 		t.Fatalf("FindByID: %v", err)
 	}
@@ -92,6 +93,7 @@ func TestLivePlacementIntegration(t *testing.T) {
 func TestCLVSmoke(t *testing.T) {
 	// Arrange: place a bet at 2.00 odds; closing line is 1.95
 	betStore := bettracking.NewMemoryBetStore()
+	ctx := context.Background()
 	bet := bettracking.Bet{
 		ID:          "clv-test-1",
 		EventID:     "event-1",
@@ -101,17 +103,17 @@ func TestCLVSmoke(t *testing.T) {
 		DecimalOdds: 2.00,
 		Status:      bettracking.BetStatusOpen,
 	}
-	if err := betStore.Save(bet); err != nil {
+	if err := betStore.Save(ctx, bet); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
 	// Act: resolve CLV with closing odds of 1.95
-	if err := betStore.ResolveCLV(bet.ID, 1.95); err != nil {
+	if err := betStore.ResolveCLV(ctx, bet.ID, 1.95); err != nil {
 		t.Fatalf("ResolveCLV: %v", err)
 	}
 
 	// Assert: CLV = 1/1.95 - 1/2.00 ≈ 0.0128 (positive = we beat the close)
-	updated, _ := betStore.FindByID(bet.ID)
+	updated, _ := betStore.FindByID(ctx, bet.ID)
 	if updated.CLV == nil {
 		t.Fatal("expected CLV to be set")
 	}

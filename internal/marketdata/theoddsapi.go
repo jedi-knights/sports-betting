@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -40,6 +41,8 @@ var knownBookmakers = map[string]Book{
 }
 
 // sportKeys maps our internal Sport type to The Odds API v4 sport key.
+// Note: SportSoccer maps to the English Premier League only.
+// Add additional soccer league keys and extend this map to support other leagues.
 var sportKeys = map[Sport]string{
 	SportNFL:    "americanfootball_nfl",
 	SportNBA:    "basketball_nba",
@@ -203,7 +206,7 @@ func (p *TheOddsAPIProvider) refresh(ctx context.Context, sport Sport, sportKey 
 	if err != nil {
 		return fmt.Errorf("fetching odds: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() { _ = resp.Body.Close() }() // read-only response; close error is not actionable
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("odds API responded with status %d", resp.StatusCode)
@@ -352,7 +355,7 @@ func (p *TheOddsAPIProvider) Scores(ctx context.Context, sport Sport, daysFrom i
 	if err != nil {
 		return nil, fmt.Errorf("fetching scores: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() { _ = resp.Body.Close() }() // read-only response; close error is not actionable
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("scores API responded with status %d", resp.StatusCode)
@@ -378,8 +381,9 @@ func (p *TheOddsAPIProvider) Scores(ctx context.Context, sport Sport, daysFrom i
 			r.CompletedAt = *ae.LastUpdate
 		}
 		for _, s := range ae.Scores {
-			var score int
-			if _, err := fmt.Sscanf(s.Score, "%d", &score); err != nil {
+			score, err := strconv.Atoi(s.Score)
+			if err != nil {
+				// Non-integer score (e.g. "2.5") — skip rather than silently zero.
 				continue
 			}
 			switch s.Name {

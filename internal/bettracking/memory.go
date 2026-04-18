@@ -1,6 +1,7 @@
 package bettracking
 
 import (
+	"context"
 	"fmt"
 	"sync"
 )
@@ -18,7 +19,7 @@ func NewMemoryBetStore() *MemoryBetStore {
 }
 
 // Save stores a new bet. Returns ErrDuplicateID if the ID already exists.
-func (s *MemoryBetStore) Save(bet Bet) error {
+func (s *MemoryBetStore) Save(_ context.Context, bet Bet) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, exists := s.bets[bet.ID]; exists {
@@ -30,7 +31,7 @@ func (s *MemoryBetStore) Save(bet Bet) error {
 }
 
 // FindByID returns the bet with the given ID. Returns ErrNotFound if absent.
-func (s *MemoryBetStore) FindByID(id string) (Bet, error) {
+func (s *MemoryBetStore) FindByID(_ context.Context, id string) (Bet, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	bet, ok := s.bets[id]
@@ -41,7 +42,7 @@ func (s *MemoryBetStore) FindByID(id string) (Bet, error) {
 }
 
 // FindAll returns all bets in insertion order.
-func (s *MemoryBetStore) FindAll() ([]Bet, error) {
+func (s *MemoryBetStore) FindAll(_ context.Context) ([]Bet, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]Bet, 0, len(s.order))
@@ -52,7 +53,7 @@ func (s *MemoryBetStore) FindAll() ([]Bet, error) {
 }
 
 // FindByStatus returns all bets matching the given status.
-func (s *MemoryBetStore) FindByStatus(status BetStatus) ([]Bet, error) {
+func (s *MemoryBetStore) FindByStatus(_ context.Context, status BetStatus) ([]Bet, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	var out []Bet
@@ -65,7 +66,7 @@ func (s *MemoryBetStore) FindByStatus(status BetStatus) ([]Bet, error) {
 }
 
 // Update replaces an existing bet. Returns ErrNotFound if the ID is absent.
-func (s *MemoryBetStore) Update(bet Bet) error {
+func (s *MemoryBetStore) Update(_ context.Context, bet Bet) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.bets[bet.ID]; !ok {
@@ -76,7 +77,7 @@ func (s *MemoryBetStore) Update(bet Bet) error {
 }
 
 // FindByEventID returns all bets associated with the given event ID.
-func (s *MemoryBetStore) FindByEventID(eventID string) ([]Bet, error) {
+func (s *MemoryBetStore) FindByEventID(_ context.Context, eventID string) ([]Bet, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	var out []Bet
@@ -89,7 +90,7 @@ func (s *MemoryBetStore) FindByEventID(eventID string) ([]Bet, error) {
 }
 
 // Resolve marks a bet won or lost based on the game outcome.
-func (s *MemoryBetStore) Resolve(betID string, won bool) error {
+func (s *MemoryBetStore) Resolve(_ context.Context, betID string, won bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	bet, ok := s.bets[betID]
@@ -107,12 +108,19 @@ func (s *MemoryBetStore) Resolve(betID string, won bool) error {
 
 // ResolveCLV computes and stores the closing line value.
 // CLV = (1/closingOdds) − (1/betOdds). Positive means the bet beat the close.
-func (s *MemoryBetStore) ResolveCLV(betID string, closingDecimalOdds float64) error {
+// Returns an error if closingDecimalOdds or the bet's DecimalOdds are not positive.
+func (s *MemoryBetStore) ResolveCLV(_ context.Context, betID string, closingDecimalOdds float64) error {
+	if closingDecimalOdds <= 0 {
+		return fmt.Errorf("ResolveCLV: closingDecimalOdds must be positive, got %v", closingDecimalOdds)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	bet, ok := s.bets[betID]
 	if !ok {
 		return fmt.Errorf("%w: %s", ErrNotFound, betID)
+	}
+	if bet.DecimalOdds <= 0 {
+		return fmt.Errorf("ResolveCLV: bet %s has invalid DecimalOdds %v", betID, bet.DecimalOdds)
 	}
 	clv := 1.0/closingDecimalOdds - 1.0/bet.DecimalOdds
 	bet.CLV = &clv

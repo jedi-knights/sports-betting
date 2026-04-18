@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -20,6 +21,14 @@ import (
 	"github.com/jedi-knights/sports-betting/internal/marketdata"
 	"github.com/jedi-knights/sports-betting/internal/marketdata/kafkasub"
 )
+
+// marginAdjustment is the vig factor applied when estimating true implied
+// probability from a bookmaker's decimal odds.
+const marginAdjustment = 0.05
+
+// minEdgeThreshold is the minimum estimated true implied probability required
+// to place a paper bet.
+const minEdgeThreshold = 0.5
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -34,25 +43,35 @@ func main() {
 	kafkaScoresTopic := envOr("KAFKA_SCORES_TOPIC", "market-data.scores")
 	kafkaScoresGroup := envOr("KAFKA_SCORES_GROUP", "paper-trade-scores")
 
-	sub, err := kafkasub.New(kafkaBrokers, kafkaGroup, kafkaTopic)
+	sub, err := kafkasub.New(kafkaBrokers, kafkaGroup, kafkaTopic, logger)
 	if err != nil {
 		logger.Error("creating kafka subscriber", "error", err)
 		os.Exit(1)
 	}
-	defer func() { _ = sub.Close() }()
+	defer func() {
+		if err := sub.Close(); err != nil {
+			logger.Error("closing lines subscriber", "error", err)
+		}
+	}()
 	logger.Info("subscribed to lines kafka topic", "brokers", kafkaBrokers, "topic", kafkaTopic, "group", kafkaGroup)
 
-	scoresSub, err := kafkasub.NewScoresSubscriber(kafkaBrokers, kafkaScoresGroup, kafkaScoresTopic)
+	scoresSub, err := kafkasub.NewScoresSubscriber(kafkaBrokers, kafkaScoresGroup, kafkaScoresTopic, logger)
 	if err != nil {
 		logger.Error("creating scores kafka subscriber", "error", err)
 		os.Exit(1)
 	}
-	defer func() { _ = scoresSub.Close() }()
+	var wg sync.WaitGroup
+	defer func() {
+		wg.Wait()
+		if err := scoresSub.Close(); err != nil {
+			logger.Error("closing scores subscriber", "error", err)
+		}
+	}()
 	logger.Info("subscribed to scores kafka topic", "topic", kafkaScoresTopic, "group", kafkaScoresGroup)
 
 	betStore := bettracking.NewMemoryBetStore()
 	book := bookmaker.NewSimulatedBookmakerClient(
-		bookmaker.WithMargin(0.05),
+		bookmaker.WithMargin(marginAdjustment),
 		bookmaker.WithMaxStake(100),
 		bookmaker.WithOfferTTL(30*time.Second),
 	)
@@ -81,7 +100,9 @@ func main() {
 	}()
 
 	// Subscribe to game-completed events for bet settlement.
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		if err := scoresSub.Subscribe(ctx, svc.handleGameCompleted); err != nil {
 			if !errors.Is(err, context.Canceled) {
 				logger.Error("scores subscriber error", "error", err)
@@ -98,8 +119,10 @@ func main() {
 
 	logger.Info("paper-trade service shutting down")
 	shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	_ = server.Shutdown(shutCtx)
+	if err := server.Shutdown(shutCtx); err != nil {
+		logger.Error("HTTP server shutdown", "error", err)
+	}
+	cancel()
 }
 
 type paperTradeService struct {
@@ -110,10 +133,10 @@ type paperTradeService struct {
 
 // handleGameCompleted is called by the scores subscriber for each GameCompleted event.
 // It finds all open bets for the completed event and resolves them as won or lost.
-func (s *paperTradeService) handleGameCompleted(_ context.Context, event marketdata.GameCompletedEvent) error {
-	bets, err := s.betStore.FindByEventID(event.Result.EventID)
+// Errors are returned to the subscriber, which logs them.
+func (s *paperTradeService) handleGameCompleted(ctx context.Context, event marketdata.GameCompletedEvent) error {
+	bets, err := s.betStore.FindByEventID(ctx, event.Result.EventID)
 	if err != nil {
-		s.logger.Error("finding bets for event", "event_id", event.Result.EventID, "error", err)
 		return err
 	}
 	winningSide := string(event.Result.WinningSide())
@@ -122,7 +145,7 @@ func (s *paperTradeService) handleGameCompleted(_ context.Context, event marketd
 			continue
 		}
 		won := bet.Side == winningSide
-		if err := s.betStore.Resolve(bet.ID, won); err != nil {
+		if err := s.betStore.Resolve(ctx, bet.ID, won); err != nil {
 			s.logger.Error("resolving bet", "bet_id", bet.ID, "error", err)
 			continue
 		}
@@ -148,8 +171,8 @@ func (s *paperTradeService) evaluateMarket(ctx context.Context, marketID, eventI
 		return
 	}
 	for _, offer := range offers {
-		trueImplied := 1.0 / offer.DecimalOdds * (1 + 0.05)
-		if trueImplied < 0.5 {
+		trueImplied := 1.0 / offer.DecimalOdds * (1 + marginAdjustment)
+		if trueImplied < minEdgeThreshold {
 			continue
 		}
 		resp, err := s.book.PlaceBet(ctx, bookmaker.BetRequest{
@@ -172,14 +195,14 @@ func (s *paperTradeService) evaluateMarket(ctx context.Context, marketID, eventI
 			PlacedAt:    time.Now(),
 			Status:      bettracking.BetStatusOpen,
 		}
-		if err := s.betStore.Save(bet); err != nil {
+		if err := s.betStore.Save(ctx, bet); err != nil {
 			s.logger.Error("saving bet", "bet_id", bet.ID, "error", err)
 		}
 	}
 }
 
-func (s *paperTradeService) handleGetBets(w http.ResponseWriter, _ *http.Request) {
-	bets, err := s.betStore.FindAll()
+func (s *paperTradeService) handleGetBets(w http.ResponseWriter, r *http.Request) {
+	bets, err := s.betStore.FindAll(r.Context())
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
@@ -190,8 +213,8 @@ func (s *paperTradeService) handleGetBets(w http.ResponseWriter, _ *http.Request
 	}
 }
 
-func (s *paperTradeService) handleGetPerformance(w http.ResponseWriter, _ *http.Request) {
-	bets, err := s.betStore.FindAll()
+func (s *paperTradeService) handleGetPerformance(w http.ResponseWriter, r *http.Request) {
+	bets, err := s.betStore.FindAll(r.Context())
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return

@@ -62,18 +62,18 @@ func TestPaperTradingLoop(t *testing.T) {
 		DecimalOdds: resp.DecimalOdds,
 		Status:      bettracking.BetStatusOpen,
 	}
-	if err := betStore.Save(bet); err != nil {
+	if err := betStore.Save(ctx, bet); err != nil {
 		t.Fatalf("Save bet: %v", err)
 	}
 
 	// Simulate a win: resolve the bet.
-	if err := betStore.Resolve(bet.ID, true); err != nil {
+	if err := betStore.Resolve(ctx, bet.ID, true); err != nil {
 		t.Fatalf("Resolve bet: %v", err)
 	}
 	book.RecordWin()
 
 	// Assert: performance report shows 1 won bet with positive P&L.
-	bets, _ := betStore.FindAll()
+	bets, _ := betStore.FindAll(ctx)
 	results := make([]bettracking.BetResult, 0, len(bets))
 	for _, b := range bets {
 		results = append(results, bettracking.NewBetResult(b))

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -25,6 +26,16 @@ import (
 	pb "github.com/jedi-knights/sports-betting/internal/marketdata/pb"
 )
 
+// validSports is the set of sport identifiers accepted by this service.
+// Values outside this set are logged as warnings at startup.
+var validSports = map[marketdata.Sport]bool{
+	marketdata.SportNFL:    true,
+	marketdata.SportNBA:    true,
+	marketdata.SportMLB:    true,
+	marketdata.SportNHL:    true,
+	marketdata.SportSoccer: true,
+}
+
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
@@ -32,8 +43,14 @@ func main() {
 	defer stop()
 
 	sports := parseSports(os.Getenv("SPORT"))
+	for _, s := range sports {
+		if !validSports[s] {
+			logger.Warn("unknown sport key — will fail on first poll", "sport", s)
+		}
+	}
+
 	season := envOr("SEASON", "2024")
-	pollInterval := durationEnv("POLL_INTERVAL_SECONDS", 60)
+	pollInterval := durationEnv(logger, "POLL_INTERVAL_SECONDS", 60)
 	httpAddr := envOr("ADDR", ":8081")
 	grpcAddr := envOr("GRPC_ADDR", ":9090")
 
@@ -101,30 +118,50 @@ func main() {
 	)
 
 	scoresDaysFrom := intEnv("SCORES_DAYS_FROM", 1)
-	scoresProvider, hasScores := provider.(marketdata.ScoresProvider)
+	// Type-assert to ScoresProvider — only implemented by live providers, not static or null.
+	var scoresProvider marketdata.ScoresProvider
+	if sp, ok := provider.(marketdata.ScoresProvider); ok {
+		scoresProvider = sp
+	}
 
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
-	pollAll(ctx, logger, provider, store, publisher, sports, season)
-	if hasScores {
-		pollScores(ctx, logger, scoresProvider, publisher, sports, scoresDaysFrom)
-	}
+	pollCycle(ctx, logger, provider, scoresProvider, store, publisher, sports, season, scoresDaysFrom)
 	for {
 		select {
 		case <-ticker.C:
-			pollAll(ctx, logger, provider, store, publisher, sports, season)
-			if hasScores {
-				pollScores(ctx, logger, scoresProvider, publisher, sports, scoresDaysFrom)
-			}
+			pollCycle(ctx, logger, provider, scoresProvider, store, publisher, sports, season, scoresDaysFrom)
 		case <-ctx.Done():
 			logger.Info("market-data service shutting down")
 			grpcSrv.GracefulStop()
 			shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			_ = httpSrv.Shutdown(shutCtx)
+			if err := httpSrv.Shutdown(shutCtx); err != nil {
+				logger.Error("HTTP server shutdown", "error", err)
+			}
+			cancel()
 			return
 		}
+	}
+}
+
+// pollCycle runs one full poll of odds and (if available) scores.
+// Extracting this keeps the ticker/shutdown select clean and avoids repeating
+// the scoresProvider nil-check in each branch.
+func pollCycle(
+	ctx context.Context,
+	logger *slog.Logger,
+	oddsProvider marketdata.OddsProvider,
+	scoresProvider marketdata.ScoresProvider,
+	store marketdata.LineStore,
+	publisher marketdata.EventPublisher,
+	sports []marketdata.Sport,
+	season string,
+	scoresDaysFrom int,
+) {
+	pollAll(ctx, logger, oddsProvider, store, publisher, sports, season)
+	if scoresProvider != nil {
+		pollScores(ctx, logger, scoresProvider, publisher, sports, scoresDaysFrom)
 	}
 }
 
@@ -229,49 +266,6 @@ func poll(
 	logger.Info("poll complete", "sport", sport, "events", len(events))
 }
 
-func parseSports(raw string) []marketdata.Sport {
-	if raw == "" {
-		return []marketdata.Sport{marketdata.SportNFL}
-	}
-	parts := strings.Split(raw, ",")
-	sports := make([]marketdata.Sport, 0, len(parts))
-	for _, p := range parts {
-		if s := strings.TrimSpace(p); s != "" {
-			sports = append(sports, marketdata.Sport(s))
-		}
-	}
-	if len(sports) == 0 {
-		return []marketdata.Sport{marketdata.SportNFL}
-	}
-	return sports
-}
-
-func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-
-func durationEnv(key string, fallbackSeconds int) time.Duration {
-	if v := os.Getenv(key); v != "" {
-		if d, err := time.ParseDuration(v + "s"); err == nil {
-			return d
-		}
-	}
-	return time.Duration(fallbackSeconds) * time.Second
-}
-
-func intEnv(key string, fallback int) int {
-	if v := os.Getenv(key); v != "" {
-		var n int
-		if _, err := fmt.Sscanf(v, "%d", &n); err == nil {
-			return n
-		}
-	}
-	return fallback
-}
-
 func pollScores(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -297,4 +291,57 @@ func pollScores(
 		}
 		logger.Info("scores poll complete", "sport", sport, "completed_games", len(results))
 	}
+}
+
+func parseSports(raw string) []marketdata.Sport {
+	if raw == "" {
+		return []marketdata.Sport{marketdata.SportNFL}
+	}
+	parts := strings.Split(raw, ",")
+	sports := make([]marketdata.Sport, 0, len(parts))
+	for _, p := range parts {
+		if s := strings.TrimSpace(p); s != "" {
+			sports = append(sports, marketdata.Sport(s))
+		}
+	}
+	if len(sports) == 0 {
+		return []marketdata.Sport{marketdata.SportNFL}
+	}
+	return sports
+}
+
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+// durationEnv parses an environment variable as a duration.
+// It accepts a plain integer (treated as seconds) or a Go duration string (e.g. "30s", "2m").
+// If the value cannot be parsed, a warning is logged and the fallback is used.
+func durationEnv(logger *slog.Logger, key string, fallbackSeconds int) time.Duration {
+	v := os.Getenv(key)
+	if v == "" {
+		return time.Duration(fallbackSeconds) * time.Second
+	}
+	if n, err := strconv.Atoi(v); err == nil {
+		return time.Duration(n) * time.Second
+	}
+	if d, err := time.ParseDuration(v); err == nil {
+		return d
+	}
+	logger.Warn("unparseable duration env var, using fallback",
+		"key", key, "value", v, "fallback_seconds", fallbackSeconds)
+	return time.Duration(fallbackSeconds) * time.Second
+}
+
+func intEnv(key string, fallback int) int {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+		slog.Warn("unparseable int env var, using fallback", "key", key, "value", v)
+	}
+	return fallback
 }

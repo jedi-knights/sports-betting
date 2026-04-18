@@ -28,14 +28,6 @@ type Bet struct {
 	CLV         *float64 // nil until resolved against the closing line
 }
 
-// Outcome records the final score of a completed game.
-type Outcome struct {
-	EventID   string
-	HomeScore int
-	AwayScore int
-	FinalAt   time.Time
-}
-
 // BetResult is the computed financial outcome of a settled bet.
 type BetResult struct {
 	Bet Bet

@@ -3,8 +3,6 @@ package kafkapub_test
 import (
 	"context"
 	"encoding/json"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -12,19 +10,11 @@ import (
 
 	"github.com/jedi-knights/sports-betting/internal/marketdata"
 	"github.com/jedi-knights/sports-betting/internal/marketdata/kafkapub"
+	"github.com/jedi-knights/sports-betting/internal/marketdata/kafkatest"
 )
 
-func brokers(t *testing.T) []string {
-	t.Helper()
-	v := os.Getenv("TEST_KAFKA_BROKERS")
-	if v == "" {
-		t.Skip("TEST_KAFKA_BROKERS not set — skipping Kafka integration test")
-	}
-	return strings.Split(v, ",")
-}
-
 func TestKafkaPublisher_PublishLinesUpdated(t *testing.T) {
-	addrs := brokers(t)
+	addrs := kafkatest.Brokers(t)
 	topic := "test.lines." + t.Name()
 
 	pub, err := kafkapub.New(addrs, topic, topic+".scores")
@@ -42,7 +32,9 @@ func TestKafkaPublisher_PublishLinesUpdated(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	if err := pub.PublishLinesUpdated(ctx, event); err != nil {
 		t.Fatalf("PublishLinesUpdated: %v", err)
 	}
@@ -58,10 +50,7 @@ func TestKafkaPublisher_PublishLinesUpdated(t *testing.T) {
 	}
 	defer consumer.Close()
 
-	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	fetches := consumer.PollFetches(ctx2)
+	fetches := consumer.PollFetches(ctx)
 	if err := fetches.Err(); err != nil {
 		t.Fatalf("polling: %v", err)
 	}
@@ -74,5 +63,59 @@ func TestKafkaPublisher_PublishLinesUpdated(t *testing.T) {
 	}
 	if len(got.Lines) != 1 {
 		t.Fatalf("got %d lines, want 1", len(got.Lines))
+	}
+}
+
+func TestKafkaPublisher_PublishGameCompleted(t *testing.T) {
+	addrs := kafkatest.Brokers(t)
+	scoresTopic := "test.scores." + t.Name()
+
+	pub, err := kafkapub.New(addrs, scoresTopic+".lines", scoresTopic)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer func() { _ = pub.Close() }()
+
+	event := marketdata.GameCompletedEvent{
+		Result: marketdata.GameResult{
+			EventID:   "ev1",
+			HomeTeam:  "Chiefs",
+			AwayTeam:  "Ravens",
+			HomeScore: 27,
+			AwayScore: 20,
+		},
+		RecordedAt: time.Now(),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := pub.PublishGameCompleted(ctx, event); err != nil {
+		t.Fatalf("PublishGameCompleted: %v", err)
+	}
+
+	consumer, err := kgo.NewClient(
+		kgo.SeedBrokers(addrs...),
+		kgo.ConsumeTopics(scoresTopic),
+		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
+	)
+	if err != nil {
+		t.Fatalf("creating consumer: %v", err)
+	}
+	defer consumer.Close()
+
+	fetches := consumer.PollFetches(ctx)
+	if err := fetches.Err(); err != nil {
+		t.Fatalf("polling: %v", err)
+	}
+	var got marketdata.GameCompletedEvent
+	fetches.EachRecord(func(r *kgo.Record) {
+		_ = json.Unmarshal(r.Value, &got)
+	})
+	if got.Result.EventID != event.Result.EventID {
+		t.Fatalf("got event_id %q, want %q", got.Result.EventID, event.Result.EventID)
+	}
+	if got.Result.HomeScore != 27 {
+		t.Fatalf("got HomeScore %d, want 27", got.Result.HomeScore)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/jedi-knights/sports-betting/internal/marketdata"
@@ -41,9 +42,9 @@ var scoresAPIFixture = []map[string]any{
 func newScoresAPIServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Validate the path contains the sport key.
-		if r.URL.Path == "" {
-			http.Error(w, "bad path", http.StatusBadRequest)
+		// Verify the scores endpoint is being called, not the odds endpoint.
+		if !strings.Contains(r.URL.Path, "/scores") {
+			http.Error(w, "unexpected path: "+r.URL.Path, http.StatusBadRequest)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
