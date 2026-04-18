@@ -50,3 +50,13 @@ type BookmakerClient interface {
 	// Bets may be partially filled or rejected; the caller must inspect Rejected.
 	PlaceBet(ctx context.Context, req BetRequest) (BetResponse, error)
 }
+
+// AccountManager is the port for bookmaker account state.
+// Implementations query account balance and per-market stake limits.
+type AccountManager interface {
+	// Balance returns the current available balance in the account's native currency.
+	Balance(ctx context.Context) (float64, error)
+	// MaxStake returns the bookmaker's maximum accepted stake for a given market and side.
+	// This reflects current account-level limits; it may shrink over time as the account is limited.
+	MaxStake(ctx context.Context, marketID, side string) (float64, error)
+}

@@ -288,12 +288,12 @@ Work through phases in order. Check off each item when complete. Do not advance 
 
 ### Phase 9 — Live Execution *(after paper trading is validated)*
 
-- [ ] Define `AccountManager` interface (Go): balance, limits, session state
-- [ ] Implement first real `BookmakerClient` adapter (Pinnacle recommended as the sharp-book reference)
-- [ ] Implement `AccountManager` adapter for that bookmaker
-- [ ] Add bet placement safety checks: maximum stake cap, account balance floor, duplicate bet guard
-- [ ] Integration test: end-to-end live placement on a small stake with a single bookmaker
-- [ ] Smoke test: confirm CLV tracking works against a real closing line
+- [x] Define `AccountManager` interface (Go): balance, limits, session state
+- [x] Implement first real `BookmakerClient` adapter (Pinnacle recommended as the sharp-book reference)
+- [x] Implement `AccountManager` adapter for that bookmaker
+- [x] Add bet placement safety checks: maximum stake cap, account balance floor, duplicate bet guard
+- [x] Integration test: end-to-end live placement on a small stake with a single bookmaker
+- [x] Smoke test: confirm CLV tracking works against a real closing line
 
 ---
 
