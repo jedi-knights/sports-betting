@@ -26,6 +26,11 @@ services:
       POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-60}
       ODDS_API_KEY: ${ODDS_API_KEY}
       DATABASE_URL: postgres://${POSTGRES_USER:-sportsbetting}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-sportsbetting}?sslmode=disable
+      ADDR: :8081
+      GRPC_ADDR: :9090
+    ports:
+      - "${MARKET_DATA_PORT:-8081}:8081"
+      - "${MARKET_DATA_GRPC_PORT:-9090}:9090"
     volumes:
       - market_data:/data
     depends_on:
@@ -40,17 +45,13 @@ services:
     environment:
       POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-60}
       ADDR: :8080
-      DATABASE_URL: postgres://${POSTGRES_USER:-sportsbetting}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-sportsbetting}?sslmode=disable
+      MARKET_DATA_GRPC_ADDR: market-data:9090
     ports:
       - "${PAPER_TRADE_PORT:-8080}:8080"
-    volumes:
-      - bet_store:/bets
     depends_on:
-      postgres:
-        condition: service_healthy
+      - market-data
     restart: unless-stopped
 
 volumes:
   postgres_data:
   market_data:
-  bet_store:

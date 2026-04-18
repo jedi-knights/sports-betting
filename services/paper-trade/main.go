@@ -1,12 +1,11 @@
-// Command paper-trade evaluates lines written by market-data into the shared LineStore,
-// runs them through a SimulatedBookmakerClient, records paper bets, and exposes a REST
-// API for monitoring open positions and performance.
+// Command paper-trade reads market lines from the market-data service over gRPC,
+// evaluates them through a SimulatedBookmakerClient, records paper bets, and
+// exposes a REST API for monitoring open positions and performance.
 package main
 
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -14,9 +13,13 @@ import (
 	"syscall"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	"github.com/jedi-knights/sports-betting/internal/bettracking"
 	"github.com/jedi-knights/sports-betting/internal/bookmaker"
 	"github.com/jedi-knights/sports-betting/internal/marketdata"
+	"github.com/jedi-knights/sports-betting/internal/marketdata/grpcstore"
 )
 
 func main() {
@@ -27,15 +30,20 @@ func main() {
 
 	addr := envOr("ADDR", ":8080")
 	pollInterval := durationEnv("POLL_INTERVAL_SECONDS", 60)
+	marketDataAddr := envOr("MARKET_DATA_GRPC_ADDR", "market-data:9090")
 
-	lineStore, err := buildLineStore(ctx, logger)
+	conn, err := grpc.NewClient(
+		marketDataAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
-		logger.Error("building line store", "error", err)
+		logger.Error("connecting to market-data gRPC", "addr", marketDataAddr, "error", err)
 		os.Exit(1)
 	}
-	if closer, ok := lineStore.(interface{ Close() }); ok {
-		defer closer.Close()
-	}
+	defer func() { _ = conn.Close() }()
+
+	lineStore := grpcstore.New(conn)
+	logger.Info("using market-data gRPC line store", "addr", marketDataAddr)
 
 	betStore := bettracking.NewMemoryBetStore()
 	book := bookmaker.NewSimulatedBookmakerClient(
@@ -189,19 +197,6 @@ func (s *paperTradeService) handleGetPerformance(w http.ResponseWriter, _ *http.
 	if err := json.NewEncoder(w).Encode(report); err != nil {
 		s.logger.Error("encoding performance response", "error", err)
 	}
-}
-
-func buildLineStore(ctx context.Context, logger *slog.Logger) (marketdata.LineStore, error) {
-	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
-		store, err := marketdata.NewPostgresLineStore(ctx, dsn)
-		if err != nil {
-			return nil, fmt.Errorf("connecting to postgres: %w", err)
-		}
-		logger.Info("using postgres line store")
-		return store, nil
-	}
-	logger.Warn("DATABASE_URL not set — using in-memory line store (paper bets will not survive restarts)")
-	return marketdata.NewMemoryLineStore(), nil
 }
 
 func envOr(key, fallback string) string {

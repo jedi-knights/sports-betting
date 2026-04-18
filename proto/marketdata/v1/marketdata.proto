@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package marketdata.v1;
+
+option go_package = "github.com/jedi-knights/sports-betting/internal/marketdata/pb;pb";
+
+import "google/protobuf/timestamp.proto";
+
+// MarketDataService exposes the read side of the line store over gRPC.
+// The market-data service is the sole writer; paper-trade and other consumers
+// call this service instead of connecting directly to the database.
+service MarketDataService {
+  // ListMarkets returns the distinct set of market IDs that have at least one saved line.
+  rpc ListMarkets (ListMarketsRequest) returns (ListMarketsResponse);
+
+  // ListLines returns all stored lines for the given market, ordered by recorded_at descending.
+  rpc ListLines (ListLinesRequest) returns (ListLinesResponse);
+
+  // GetClosingLine returns the most recent closing line for the given market and side.
+  // The line field is absent from the response if no closing line exists.
+  rpc GetClosingLine (GetClosingLineRequest) returns (GetClosingLineResponse);
+}
+
+message ListMarketsRequest {}
+
+message ListMarketsResponse {
+  repeated string market_ids = 1;
+}
+
+message ListLinesRequest {
+  string market_id = 1;
+}
+
+message ListLinesResponse {
+  repeated Line lines = 1;
+}
+
+message GetClosingLineRequest {
+  string market_id = 1;
+  string side = 2;
+}
+
+message GetClosingLineResponse {
+  // absent when no closing line exists for this market/side combination
+  optional Line line = 1;
+}
+
+// Line is a single price offered by one bookmaker for one side of a market at a moment in time.
+message Line {
+  string id = 1;
+  string event_id = 2;
+  string market_id = 3;
+  string book_id = 4;
+  string side = 5;
+  string label = 6;
+  int32 american_odds = 7;
+  double decimal_odds = 8;
+  double raw_implied_prob = 9;
+  double implied_prob = 10;
+  optional double spread = 11;
+  optional double total = 12;
+  google.protobuf.Timestamp recorded_at = 13;
+  bool is_closing = 14;
+}

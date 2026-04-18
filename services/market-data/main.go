@@ -1,17 +1,24 @@
-// Command market-data polls an OddsProvider on a schedule and persists lines
-// into a LineStore. It is the data-ingestion service for the paper-trading stack.
+// Command market-data polls an OddsProvider on a schedule, persists lines into a
+// LineStore, and exposes the data to other services via a REST API and a gRPC API.
 package main
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"google.golang.org/grpc"
+
 	"github.com/jedi-knights/sports-betting/internal/marketdata"
+	"github.com/jedi-knights/sports-betting/internal/marketdata/grpcserver"
+	"github.com/jedi-knights/sports-betting/internal/marketdata/httpapi"
+	pb "github.com/jedi-knights/sports-betting/internal/marketdata/pb"
 )
 
 func main() {
@@ -23,6 +30,8 @@ func main() {
 	sport := marketdata.Sport(envOr("SPORT", "nfl"))
 	season := envOr("SEASON", "2024")
 	pollInterval := durationEnv("POLL_INTERVAL_SECONDS", 60)
+	httpAddr := envOr("ADDR", ":8081")
+	grpcAddr := envOr("GRPC_ADDR", ":9090")
 
 	var provider marketdata.OddsProvider
 	if apiKey := os.Getenv("ODDS_API_KEY"); apiKey != "" {
@@ -49,6 +58,35 @@ func main() {
 		defer closer.Close()
 	}
 
+	// Start gRPC server.
+	grpcSrv := grpc.NewServer()
+	pb.RegisterMarketDataServiceServer(grpcSrv, grpcserver.New(store))
+	grpcLis, err := net.Listen("tcp", grpcAddr)
+	if err != nil {
+		logger.Error("listening for gRPC", "addr", grpcAddr, "error", err)
+		os.Exit(1)
+	}
+	go func() {
+		logger.Info("market-data gRPC server listening", "addr", grpcAddr)
+		if err := grpcSrv.Serve(grpcLis); err != nil {
+			logger.Error("gRPC server error", "error", err)
+		}
+	}()
+
+	// Start HTTP server.
+	httpSrv := &http.Server{
+		Addr:         httpAddr,
+		Handler:      httpapi.New(store),
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	go func() {
+		logger.Info("market-data HTTP server listening", "addr", httpAddr)
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("HTTP server error", "error", err)
+		}
+	}()
+
 	logger.Info("market-data service starting",
 		"sport", sport,
 		"season", season,
@@ -58,7 +96,6 @@ func main() {
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
-	// Run once immediately, then on each tick.
 	poll(ctx, logger, provider, store, sport, season)
 	for {
 		select {
@@ -66,6 +103,10 @@ func main() {
 			poll(ctx, logger, provider, store, sport, season)
 		case <-ctx.Done():
 			logger.Info("market-data service shutting down")
+			grpcSrv.GracefulStop()
+			shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = httpSrv.Shutdown(shutCtx)
 			return
 		}
 	}
