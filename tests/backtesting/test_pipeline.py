@@ -9,6 +9,7 @@ from bet.backtesting.pipeline import BacktestPipeline
 from bet.backtesting.types import HistoricalGame
 from bet.features.nfl import NFLFeatureExtractor
 from bet.modeling.elo import EloModel
+from bet.modeling.logistic import LogisticRegressionModel
 from bet.sizing.kelly import KellySizer
 from bet.tracking.metrics import compute_performance_report
 from bet.tracking.types import BetResult
@@ -102,6 +103,32 @@ class TestBacktestPipelineRun:
         results = pipeline.run(_make_nfl_games(20))
         for r in results:
             assert r.clv is not None
+
+    def test_logistic_regression_model_produces_bets(self) -> None:
+        """LogisticRegressionModel needs populated feature dicts in training examples.
+
+        The pipeline must inject computed feature vectors before calling model.fit(),
+        otherwise sklearn raises ValueError: 0 feature(s) found.
+        """
+        # Arrange
+        pipeline = BacktestPipeline(
+            model=LogisticRegressionModel(),
+            extractor=NFLFeatureExtractor(),
+            detector=MinimumEdgeDetector(min_edge=0.0),
+            sizer=KellySizer(fraction=0.25),
+            bankroll=1000.0,
+            min_train_games=10,
+        )
+
+        # Act
+        results = pipeline.run(_make_nfl_games(40))
+
+        # Assert — with enough training data and min_edge=0, bets must be found
+        assert len(results) > 0, (
+            "LogisticRegressionModel detected 0 bets — likely caused by empty "
+            "feature dicts being passed to model.fit() (sklearn ValueError caught "
+            "silently, all folds skipped)"
+        )
 
     def test_no_lookahead_bias_in_training(self) -> None:
         # Pipeline must not raise LookaheadBiasError when data is clean

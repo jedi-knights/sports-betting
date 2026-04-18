@@ -130,16 +130,17 @@ class BacktestPipeline:
         train_examples: list[TrainingExample],
     ) -> None:
         if not hasattr(self._model, "fit_calibrator"):
-            self._model.fit(train_examples)
             self._extractor.fit(train_examples)  # type: ignore[union-attr]
+            feature_examples = self._populate_features(train_examples)
+            self._model.fit(feature_examples or train_examples)
             return
 
         split = max(1, int(len(train_examples) * (1.0 - self._calibration_fraction)))
         fit_examples = train_examples[:split]
         cal_games = train_games[split:]
 
-        self._model.fit(fit_examples)
         self._extractor.fit(fit_examples)  # type: ignore[union-attr]
+        self._model.fit(self._populate_features(fit_examples) or fit_examples)
 
         if not cal_games:
             return
@@ -168,6 +169,31 @@ class BacktestPipeline:
 
         if len(probs) >= 2:
             self._model.fit_calibrator(probs, outcomes)  # type: ignore[union-attr]
+
+    def _populate_features(
+        self,
+        examples: list[TrainingExample],
+    ) -> list[TrainingExample]:
+        """Re-extract features for training examples using the fitted extractor.
+
+        Training examples built from HistoricalGame have empty feature dicts.
+        Feature-based models (e.g. LogisticRegressionModel) need populated dicts.
+        The extractor's as_of guard ensures no lookahead — each example only
+        sees games that completed before its own timestamp.
+        """
+        populated: list[TrainingExample] = []
+        for ex in examples:
+            try:
+                fs = self._extractor.extract(  # type: ignore[union-attr]
+                    ex.feature_set.event_id,
+                    ex.feature_set.home_team,
+                    ex.feature_set.away_team,
+                    as_of=ex.outcome.final_at,
+                )
+                populated.append(TrainingExample(feature_set=fs, outcome=ex.outcome))
+            except Exception:
+                continue
+        return populated
 
 
 def _to_training_example(game: HistoricalGame) -> TrainingExample:

@@ -13,6 +13,7 @@ from __future__ import annotations
 import numpy as np
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
 
 from .types import FeatureSet, ProbabilityEstimate, TrainingExample
 
@@ -41,7 +42,8 @@ class LogisticRegressionModel:
 
     def __init__(self, c: float = 1.0) -> None:
         self._c = c
-        self._model = LogisticRegression(C=c, solver="lbfgs", max_iter=1000)
+        self._model = LogisticRegression(C=c, solver="lbfgs", max_iter=5000)
+        self._scaler = StandardScaler()
         self._feature_keys: list[str] = []
         self._fitted = False
 
@@ -71,7 +73,8 @@ class LogisticRegressionModel:
             for ex in examples
         ]
 
-        self._model.fit(x, y)
+        x_scaled = self._scaler.fit_transform(x)
+        self._model.fit(x_scaled, y)
         self._fitted = True
 
     def predict(self, features: FeatureSet) -> ProbabilityEstimate:
@@ -90,7 +93,8 @@ class LogisticRegressionModel:
             raise NotFittedError("call fit() before predict()")
 
         x = np.array([[features.features[k] for k in self._feature_keys]])
-        proba = self._model.predict_proba(x)[0]
+        x_scaled = self._scaler.transform(x)
+        proba = self._model.predict_proba(x_scaled)[0]
         prob_map = dict(zip(self._model.classes_, proba))
 
         home_win = float(prob_map.get("home_win", 0.0))

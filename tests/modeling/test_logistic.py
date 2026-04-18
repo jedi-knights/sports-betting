@@ -123,6 +123,94 @@ class TestLogisticRegressionPredict:
         assert result.model_id == "logistic_regression"
 
 
+class TestLogisticRegressionScaling:
+    def test_scaler_is_fitted_after_fit(self) -> None:
+        """StandardScaler.mean_ must exist after fit — proves fit_transform was called.
+
+        Without calling fit_transform in fit(), mean_ is never set.
+        """
+        # Arrange / Act
+        model = LogisticRegressionModel()
+        model.fit(_build_training_data())
+
+        # Assert
+        assert hasattr(model._scaler, "mean_"), (
+            "StandardScaler.mean_ not set — fit_transform() was never called in fit()"
+        )
+
+    def test_predictions_correct_with_elo_scale_features(self) -> None:
+        """Model must predict correctly when features have Elo-magnitude values (~1500).
+
+        Without scaling, lbfgs struggles because home_elo (~1500) dominates gradients
+        and form (~0.0–1.0) features are nearly invisible.
+        """
+
+        # Arrange — home team is a strong favourite on both Elo and form
+        def _multiscale_example(
+            home_elo: float,
+            away_elo: float,
+            home_form: float,
+            away_form: float,
+            home_score: int,
+            away_score: int,
+            day: int,
+        ) -> TrainingExample:
+            dt = datetime(2023, 9, day, tzinfo=UTC)
+            return TrainingExample(
+                feature_set=FeatureSet(
+                    event_id=f"ms-{day}",
+                    sport="nfl",
+                    home_team="home",
+                    away_team="away",
+                    as_of=dt,
+                    features={
+                        "home_elo": home_elo,
+                        "away_elo": away_elo,
+                        "home_form_5": home_form,
+                        "away_form_5": away_form,
+                    },
+                ),
+                outcome=ActualOutcome(
+                    event_id=f"ms-{day}",
+                    home_score=home_score,
+                    away_score=away_score,
+                    final_at=dt,
+                ),
+            )
+
+        examples = []
+        for i in range(10):
+            examples.append(
+                _multiscale_example(1600.0, 1400.0, 0.8, 0.2, 3, 1, day=i + 1)
+            )
+        for i in range(10, 20):
+            examples.append(
+                _multiscale_example(1400.0, 1600.0, 0.2, 0.8, 1, 3, day=i + 1)
+            )
+
+        model = LogisticRegressionModel()
+        model.fit(examples)
+
+        # Act — strong home favourite
+        feat = FeatureSet(
+            event_id="pred",
+            sport="nfl",
+            home_team="home",
+            away_team="away",
+            as_of=datetime(2023, 10, 1, tzinfo=UTC),
+            features={
+                "home_elo": 1600.0,
+                "away_elo": 1400.0,
+                "home_form_5": 0.8,
+                "away_form_5": 0.2,
+            },
+        )
+        result = model.predict(feat)
+
+        # Assert
+        assert result.home_win > result.away_win
+
+
 class TestLogisticRegressionWithDraws:
     def test_draw_not_none_when_draws_in_training_data(self) -> None:
         examples = [

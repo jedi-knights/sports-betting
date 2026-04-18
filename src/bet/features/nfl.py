@@ -12,20 +12,28 @@ from datetime import datetime
 from ..modeling.elo import EloModel
 from ..modeling.types import FeatureSet, TrainingExample
 
+_SECONDS_PER_DAY = 86_400.0
+_DEFAULT_REST_DAYS = 7.0  # NFL teams play weekly; use as prior when no history
+_FORM_WINDOW = 5
+
 
 class NFLFeatureExtractor:
     """Computes Elo-based features for NFL games.
 
     Rebuilds Elo ratings on every ``extract`` call using only historical
-    games that completed before ``as_of``. The computational cost is O(n)
-    per extract where n is the number of historical games; this is acceptable
-    for backtesting and will be optimised in later phases if needed.
+    games that completed before ``as_of``. Also computes rest-days and
+    recent-form features from the same training window.
+
+    The computational cost is O(n) per extract where n is the number of
+    historical games; acceptable for backtesting.
 
     Args:
         k_factor: K-factor passed to the internal ``EloModel``.
         home_advantage: Home advantage (in Elo points) passed to the internal
             ``EloModel`` and applied during prediction.
         initial_rating: Starting rating for teams with no history.
+        use_mov: If True, scale K by log margin so blowouts carry more weight.
+        mov_reference: Reference margin (in points) that yields K multiplier 1.0.
     """
 
     def __init__(
@@ -59,7 +67,10 @@ class NFLFeatureExtractor:
         away_team: str,
         as_of: datetime,
     ) -> FeatureSet:
-        """Compute Elo ratings for both teams using only games before ``as_of``.
+        """Compute Elo, rest-days, and recent-form features for both teams.
+
+        All features are computed using only games that completed strictly
+        before ``as_of`` to prevent lookahead bias.
 
         Args:
             event_id: Identifier for the game being predicted.
@@ -68,7 +79,9 @@ class NFLFeatureExtractor:
             as_of: Cutoff timestamp; games at or after this time are excluded.
 
         Returns:
-            FeatureSet with ``home_elo``, ``away_elo``, and ``elo_diff``.
+            FeatureSet with ``home_elo``, ``away_elo``, ``elo_diff``,
+            ``home_rest_days``, ``away_rest_days``, ``home_form_5``,
+            and ``away_form_5``.
         """
         model = EloModel(
             k_factor=self._k_factor,
@@ -99,5 +112,65 @@ class NFLFeatureExtractor:
                 "home_elo": home_elo,
                 "away_elo": away_elo,
                 "elo_diff": home_elo - away_elo,
+                "home_rest_days": self._days_since_last_game(home_team, as_of),
+                "away_rest_days": self._days_since_last_game(away_team, as_of),
+                "home_form_5": self._recent_form(home_team, as_of),
+                "away_form_5": self._recent_form(away_team, as_of),
             },
         )
+
+    def _days_since_last_game(self, team: str, as_of: datetime) -> float:
+        """Return days elapsed since the team's most recent completed game.
+
+        Args:
+            team: Team identifier.
+            as_of: Reference timestamp; only games before this count.
+
+        Returns:
+            Days since last game, or ``_DEFAULT_REST_DAYS`` if no prior game.
+        """
+        prior = [
+            ex
+            for ex in self._examples
+            if ex.outcome.final_at < as_of
+            and team in (ex.feature_set.home_team, ex.feature_set.away_team)
+        ]
+        if not prior:
+            return _DEFAULT_REST_DAYS
+        last = max(prior, key=lambda e: e.outcome.final_at)
+        return (as_of - last.outcome.final_at).total_seconds() / _SECONDS_PER_DAY
+
+    def _recent_form(self, team: str, as_of: datetime) -> float:
+        """Return the team's win rate over its last ``_FORM_WINDOW`` games.
+
+        Args:
+            team: Team identifier.
+            as_of: Reference timestamp; only games before this count.
+
+        Returns:
+            Win rate in [0, 1], or 0.5 if the team has no prior games.
+        """
+        prior = sorted(
+            (
+                ex
+                for ex in self._examples
+                if ex.outcome.final_at < as_of
+                and team in (ex.feature_set.home_team, ex.feature_set.away_team)
+            ),
+            key=lambda e: e.outcome.final_at,
+        )[-_FORM_WINDOW:]
+        if not prior:
+            return 0.5
+        wins = sum(
+            1
+            for ex in prior
+            if (
+                ex.feature_set.home_team == team
+                and ex.outcome.home_score > ex.outcome.away_score
+            )
+            or (
+                ex.feature_set.away_team == team
+                and ex.outcome.away_score > ex.outcome.home_score
+            )
+        )
+        return wins / len(prior)

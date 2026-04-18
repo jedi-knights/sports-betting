@@ -13,6 +13,7 @@ from .backtesting.pipeline import BacktestPipeline
 from .features.nfl import NFLFeatureExtractor
 from .features.soccer import SoccerFeatureExtractor
 from .modeling.elo import EloModel
+from .modeling.logistic import LogisticRegressionModel
 from .modeling.poisson import PoissonModel
 from .sizing.kelly import KellySizer
 from .tracking.metrics import compute_performance_report
@@ -28,7 +29,10 @@ def main() -> None:
 @click.option("--sport", required=True, type=click.Choice(["nfl", "soccer"]))
 @click.option("--data", required=True, type=click.Path(exists=True))
 @click.option(
-    "--model", "model_name", default="elo", type=click.Choice(["elo", "poisson"])
+    "--model",
+    "model_name",
+    default="elo",
+    type=click.Choice(["elo", "logistic", "poisson"]),
 )
 @click.option("--min-edge", default=0.02, show_default=True, type=float)
 @click.option("--bankroll", default=1000.0, show_default=True, type=float)
@@ -80,7 +84,10 @@ def backtest(
     games = CSVDataLoader().load(data)
     click.echo(f"Loaded {len(games)} games from {data}")
 
-    if model_name == "elo":
+    if sport == "nfl" and model_name == "logistic":
+        model = LogisticRegressionModel()
+        extractor = NFLFeatureExtractor(k_factor=k_factor, use_mov=use_mov)
+    elif sport == "nfl":
         model = EloModel(k_factor=k_factor, use_mov=use_mov)
         extractor = NFLFeatureExtractor(k_factor=k_factor, use_mov=use_mov)
     else:

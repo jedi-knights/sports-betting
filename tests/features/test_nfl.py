@@ -144,3 +144,122 @@ class TestNFLFeatureExtractorRatingAccumulation:
         extractor.fit(examples)
         result = extractor.extract("g", "a", "b", _dt(10))
         assert result.features["away_elo"] < 1500.0
+
+
+class TestNFLFeatureExtractorRestDays:
+    def test_rest_days_present_in_features(self) -> None:
+        # Arrange
+        extractor = NFLFeatureExtractor()
+        extractor.fit([])
+
+        # Act
+        result = extractor.extract("g", "chiefs", "bears", _dt(7))
+
+        # Assert
+        assert "home_rest_days" in result.features
+        assert "away_rest_days" in result.features
+
+    def test_rest_days_computed_from_last_game(self) -> None:
+        # Arrange — chiefs played day 1; extract on day 8 → 7 days rest
+        extractor = NFLFeatureExtractor()
+        extractor.fit([_make_example("chiefs", "bears", 24, 10, day=1)])
+
+        # Act
+        result = extractor.extract("g", "chiefs", "packers", _dt(8))
+
+        # Assert
+        assert abs(result.features["home_rest_days"] - 7.0) < 0.1
+
+    def test_no_prior_game_gives_default_rest(self) -> None:
+        # Arrange
+        extractor = NFLFeatureExtractor()
+        extractor.fit([])
+
+        # Act
+        result = extractor.extract("g", "new_team", "bears", _dt(7))
+
+        # Assert
+        assert result.features["home_rest_days"] == 7.0
+
+    def test_away_rest_uses_away_team_history(self) -> None:
+        # Arrange — bears last played as away on day 1; extract bears as away on day 8
+        extractor = NFLFeatureExtractor()
+        extractor.fit([_make_example("chiefs", "bears", 24, 10, day=1)])
+
+        # Act
+        result = extractor.extract("g", "packers", "bears", _dt(8))
+
+        # Assert
+        assert abs(result.features["away_rest_days"] - 7.0) < 0.1
+
+
+class TestNFLFeatureExtractorRecentForm:
+    def test_form_present_in_features(self) -> None:
+        # Arrange
+        extractor = NFLFeatureExtractor()
+        extractor.fit([])
+
+        # Act
+        result = extractor.extract("g", "chiefs", "bears", _dt(7))
+
+        # Assert
+        assert "home_form_5" in result.features
+        assert "away_form_5" in result.features
+
+    def test_no_games_gives_neutral_form(self) -> None:
+        # Arrange
+        extractor = NFLFeatureExtractor()
+        extractor.fit([])
+
+        # Act
+        result = extractor.extract("g", "chiefs", "bears", _dt(7))
+
+        # Assert
+        assert result.features["home_form_5"] == 0.5
+        assert result.features["away_form_5"] == 0.5
+
+    def test_all_wins_gives_form_one(self) -> None:
+        # Arrange — chiefs win 5 games straight (as home team, days 1–5)
+        extractor = NFLFeatureExtractor()
+        examples = [
+            _make_example("chiefs", "bears", 21, 14, day=i) for i in range(1, 6)
+        ]
+        extractor.fit(examples)
+
+        # Act
+        result = extractor.extract("g", "chiefs", "packers", _dt(10))
+
+        # Assert
+        assert result.features["home_form_5"] == 1.0
+
+    def test_all_losses_gives_form_zero(self) -> None:
+        # Arrange — bears lose 5 games straight (as away team, days 1–5)
+        extractor = NFLFeatureExtractor()
+        examples = [
+            _make_example("chiefs", "bears", 21, 14, day=i) for i in range(1, 6)
+        ]
+        extractor.fit(examples)
+
+        # Act
+        result = extractor.extract("g", "packers", "bears", _dt(10))
+
+        # Assert
+        assert result.features["away_form_5"] == 0.0
+
+    def test_form_uses_only_last_five_games(self) -> None:
+        # Arrange — chiefs lose 3 early games then win 5 straight
+        # Form window should only see the last 5 wins
+        extractor = NFLFeatureExtractor()
+        early_losses = [
+            _make_example("bears", "chiefs", 21, 14, day=i) for i in range(1, 4)
+        ]
+        recent_wins = [
+            _make_example("chiefs", "bears", 21, 14, day=i) for i in range(4, 9)
+        ]
+        extractor.fit(early_losses + recent_wins)
+
+        # Act — extract on day 15 so all 8 games are prior
+        result = extractor.extract("g", "chiefs", "packers", _dt(15))
+
+        # Assert — last 5 are all wins
+        assert result.features["home_form_5"] == 1.0
