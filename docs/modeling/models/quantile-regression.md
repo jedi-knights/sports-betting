@@ -112,3 +112,9 @@ In soccer, Poisson models (see [`models/poisson.md`](poisson.md)) also price tot
 - **Quantile regression**: data-driven; captures non-Poisson patterns (overdispersion, score effects); requires more historical data to train reliably
 
 In practice, both approaches are worth implementing and comparing against each other and against the market.
+
+## Implementation in This Repository
+
+This repository implements linear quantile regression on historical home margin of victory using scikit-learn's `QuantileRegressor`. Five quantile levels (10th, 25th, 50th, 75th, 90th) are fitted simultaneously. Win probability is derived from the median prediction using the normal CDF: `P(home_win) = Φ(median / spread)`. The `predict_quantiles()` method exposes the full quantile distribution for direct spread and totals analysis.
+
+See [`src/bet/modeling/quantile.py`](../../../src/bet/modeling/quantile.py).

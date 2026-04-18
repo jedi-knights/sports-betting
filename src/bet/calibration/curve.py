@@ -50,7 +50,7 @@ def calibration_curve(
         raise ValueError("probs and outcomes must have the same length")
 
     bins: dict[int, list[tuple[float, int]]] = defaultdict(list)
-    for p, o in zip(probs, outcomes):
+    for p, o in zip(probs, outcomes, strict=False):
         idx = min(int(p * n_bins), n_bins - 1)
         bins[idx].append((p, o))
 

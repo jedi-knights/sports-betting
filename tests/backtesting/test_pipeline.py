@@ -249,9 +249,7 @@ def _make_soccer_games(n: int = 40, seed: int = 99) -> list[HistoricalGame]:
     return games
 
 
-def _make_soccer_pipeline(
-    min_edge: float = 0.0, min_train: int = 10
-) -> BacktestPipeline:
+def _make_soccer_pipeline(min_edge: float = 0.0, min_train: int = 10) -> BacktestPipeline:
     """Construct a BacktestPipeline wired for the soccer / Poisson path.
 
     Uses ``SoccerFeatureExtractor`` and ``PoissonModel`` explicitly — the same

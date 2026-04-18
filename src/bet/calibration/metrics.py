@@ -23,7 +23,7 @@ def brier_score(probs: list[float], outcomes: list[int]) -> float:
     """
     _validate(probs, outcomes)
     n = len(probs)
-    return sum((p - o) ** 2 for p, o in zip(probs, outcomes)) / n
+    return sum((p - o) ** 2 for p, o in zip(probs, outcomes, strict=False)) / n
 
 
 def log_loss(probs: list[float], outcomes: list[int]) -> float:
@@ -46,7 +46,7 @@ def log_loss(probs: list[float], outcomes: list[int]) -> float:
     n = len(probs)
     total = sum(
         o * math.log(max(p, eps)) + (1 - o) * math.log(max(1 - p, eps))
-        for p, o in zip(probs, outcomes)
+        for p, o in zip(probs, outcomes, strict=False)
     )
     return -total / n
 
@@ -76,7 +76,7 @@ def expected_calibration_error(
     _validate(probs, outcomes)
     n = len(probs)
     bins: dict[int, list[tuple[float, int]]] = defaultdict(list)
-    for p, o in zip(probs, outcomes):
+    for p, o in zip(probs, outcomes, strict=False):
         idx = min(int(p * n_bins), n_bins - 1)
         bins[idx].append((p, o))
 

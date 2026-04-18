@@ -2,6 +2,9 @@
 
 General purpose code and documentation for building, evaluating, and applying sports betting models.
 
+![Go](https://github.com/jedi-knights/sports-betting/actions/workflows/go.yml/badge.svg)
+![Python](https://github.com/jedi-knights/sports-betting/actions/workflows/python.yml/badge.svg)
+
 ## Table of Contents
 
 - [Overview](#overview)

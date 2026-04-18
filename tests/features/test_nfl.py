@@ -221,9 +221,7 @@ class TestNFLFeatureExtractorRecentForm:
     def test_all_wins_gives_form_one(self) -> None:
         # Arrange — chiefs win 5 games straight (as home team, days 1–5)
         extractor = NFLFeatureExtractor()
-        examples = [
-            _make_example("chiefs", "bears", 21, 14, day=i) for i in range(1, 6)
-        ]
+        examples = [_make_example("chiefs", "bears", 21, 14, day=i) for i in range(1, 6)]
         extractor.fit(examples)
 
         # Act
@@ -235,9 +233,7 @@ class TestNFLFeatureExtractorRecentForm:
     def test_all_losses_gives_form_zero(self) -> None:
         # Arrange — bears lose 5 games straight (as away team, days 1–5)
         extractor = NFLFeatureExtractor()
-        examples = [
-            _make_example("chiefs", "bears", 21, 14, day=i) for i in range(1, 6)
-        ]
+        examples = [_make_example("chiefs", "bears", 21, 14, day=i) for i in range(1, 6)]
         extractor.fit(examples)
 
         # Act
@@ -250,12 +246,8 @@ class TestNFLFeatureExtractorRecentForm:
         # Arrange — chiefs lose 3 early games then win 5 straight
         # Form window should only see the last 5 wins
         extractor = NFLFeatureExtractor()
-        early_losses = [
-            _make_example("bears", "chiefs", 21, 14, day=i) for i in range(1, 4)
-        ]
-        recent_wins = [
-            _make_example("chiefs", "bears", 21, 14, day=i) for i in range(4, 9)
-        ]
+        early_losses = [_make_example("bears", "chiefs", 21, 14, day=i) for i in range(1, 4)]
+        recent_wins = [_make_example("chiefs", "bears", 21, 14, day=i) for i in range(4, 9)]
         extractor.fit(early_losses + recent_wins)
 
         # Act — extract on day 15 so all 8 games are prior

@@ -1,19 +1,21 @@
-"""Logistic regression model for game outcome prediction.
+"""Gradient boosting classification model for game outcome prediction.
 
-Wraps scikit-learn's LogisticRegression with L2 regularisation. Handles both
-binary outcomes (home/away, e.g. NFL) and three-way outcomes (home/draw/away,
-e.g. soccer) transparently based on what labels appear in training data.
+Wraps scikit-learn's GradientBoostingClassifier. Handles both binary outcomes
+(home/away, e.g. NFL) and three-way outcomes (home/draw/away, e.g. soccer)
+transparently based on what labels appear in training data.
 
-Feature ordering is inferred from the first training example and held fixed
-across all subsequent predictions.
+Gradient boosting is generally the highest-accuracy approach on sports tabular
+data, but tree-based models produce poorly calibrated probabilities — they tend
+to cluster predictions near the centre of the probability range. Always wrap
+this model with a ``CalibratedModel`` before using probabilities for value
+analysis. See ``docs/modeling/models/ml-methods.md``.
 """
 
 from __future__ import annotations
 
 import numpy as np
+from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.exceptions import NotFittedError
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
 
 from .types import FeatureSet, ProbabilityEstimate, TrainingExample
 
@@ -26,24 +28,42 @@ def _outcome_label(home_score: int, away_score: int) -> str:
     return "draw"
 
 
-class LogisticRegressionModel:
-    """L2-regularised logistic regression for game outcome prediction.
+class GradientBoostingModel:
+    """Gradient-boosted decision tree classifier for game outcome prediction.
 
     Works with any feature set; feature keys are determined from the first
     training example and must be consistent across all examples and at
     predict time.
 
+    Does not require feature scaling (tree-based models are scale-invariant).
+
     Args:
-        c: Inverse regularisation strength. Smaller c = stronger L2 penalty
-            and lower variance. 1.0 is the sklearn default.
+        n_estimators: Number of boosting stages (trees). More estimators
+            improve accuracy but increase training time.
+        max_depth: Maximum depth of each individual tree. Shallow trees
+            (3–5) generalise better on sports data.
+        learning_rate: Shrinkage factor applied to each tree's contribution.
+            Lower values require more trees but reduce overfitting.
+        subsample: Fraction of training data sampled per tree. Values below
+            1.0 introduce stochastic gradient boosting, which reduces
+            variance.
     """
 
-    model_id = "logistic_regression"
+    model_id = "gradient_boosting"
 
-    def __init__(self, c: float = 1.0) -> None:
-        self._c = c
-        self._model = LogisticRegression(C=c, solver="lbfgs", max_iter=5000)
-        self._scaler = StandardScaler()
+    def __init__(
+        self,
+        n_estimators: int = 100,
+        max_depth: int = 4,
+        learning_rate: float = 0.1,
+        subsample: float = 0.8,
+    ) -> None:
+        self._model = GradientBoostingClassifier(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            learning_rate=learning_rate,
+            subsample=subsample,
+        )
         self._feature_keys: list[str] = []
         self._fitted = False
 
@@ -70,12 +90,11 @@ class LogisticRegressionModel:
         x = np.array([_row(ex) for ex in examples])
         y = [_outcome_label(ex.outcome.home_score, ex.outcome.away_score) for ex in examples]
 
-        x_scaled = self._scaler.fit_transform(x)
-        self._model.fit(x_scaled, y)
+        self._model.fit(x, y)
         self._fitted = True
 
     def predict(self, features: FeatureSet) -> ProbabilityEstimate:
-        """Predict win probabilities using the fitted logistic regression.
+        """Predict win probabilities using the fitted gradient boosting model.
 
         Args:
             features: Feature set with the same keys used during ``fit``.
@@ -90,8 +109,7 @@ class LogisticRegressionModel:
             raise NotFittedError("call fit() before predict()")
 
         x = np.array([[features.features[k] for k in self._feature_keys]])
-        x_scaled = self._scaler.transform(x)
-        proba = self._model.predict_proba(x_scaled)[0]
+        proba = self._model.predict_proba(x)[0]
         prob_map = dict(zip(self._model.classes_, proba, strict=False))
 
         home_win = float(prob_map.get("home_win", 0.0))

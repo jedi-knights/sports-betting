@@ -49,14 +49,14 @@ class TestEstimateRuinProbability:
         assert result == 0.0
 
     def test_deterministic_with_seed(self) -> None:
-        kwargs: dict = dict(
-            edge=0.05,
-            decimal_odds=2.0,
-            kelly_fraction=0.25,
-            initial_bankroll=1000.0,
-            n_simulations=500,
-            seed=42,
-        )
+        kwargs: dict = {
+            "edge": 0.05,
+            "decimal_odds": 2.0,
+            "kelly_fraction": 0.25,
+            "initial_bankroll": 1000.0,
+            "n_simulations": 500,
+            "seed": 42,
+        }
         r1 = estimate_ruin_probability(**kwargs)
         r2 = estimate_ruin_probability(**kwargs)
         assert r1 == r2

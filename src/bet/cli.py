@@ -10,14 +10,55 @@ import click
 
 from .backtesting.loader import CSVDataLoader
 from .backtesting.pipeline import BacktestPipeline
+from .features.mlb import MLBFeatureExtractor
+from .features.nba import NBAFeatureExtractor
 from .features.nfl import NFLFeatureExtractor
+from .features.nhl import NHLFeatureExtractor
 from .features.soccer import SoccerFeatureExtractor
 from .modeling.elo import EloModel
+from .modeling.ensemble import EnsembleModel
+from .modeling.gradient_boosting import GradientBoostingModel
 from .modeling.logistic import LogisticRegressionModel
 from .modeling.poisson import PoissonModel
+from .modeling.quantile import QuantileRegressionModel
 from .sizing.kelly import KellySizer
 from .tracking.metrics import compute_performance_report
 from .value.detector import MinimumEdgeDetector
+
+_EXTRACTOR_FACTORIES = {
+    "nfl": lambda k, mov: NFLFeatureExtractor(k_factor=k, use_mov=mov),
+    "nba": lambda k, mov: NBAFeatureExtractor(k_factor=k, use_mov=mov),
+    "mlb": lambda k, mov: MLBFeatureExtractor(k_factor=k, use_mov=mov),
+    "nhl": lambda k, mov: NHLFeatureExtractor(k_factor=k, use_mov=mov),
+    "soccer": lambda k, mov: SoccerFeatureExtractor(),
+}
+
+
+def _build_model_and_extractor(
+    sport: str,
+    model_name: str,
+    k_factor: float,
+    use_mov: bool,
+) -> tuple:
+    extractor = _EXTRACTOR_FACTORIES[sport](k_factor, use_mov)
+
+    if sport == "soccer" and model_name == "poisson":
+        return PoissonModel(), extractor
+
+    elo = lambda: EloModel(k_factor=k_factor, use_mov=use_mov)  # noqa: E731
+
+    if model_name == "elo":
+        return elo(), extractor
+    if model_name == "logistic":
+        return LogisticRegressionModel(), extractor
+    if model_name == "gradient_boosting":
+        return GradientBoostingModel(), extractor
+    if model_name == "quantile":
+        return QuantileRegressionModel(), extractor
+    if model_name == "ensemble":
+        return EnsembleModel([elo(), LogisticRegressionModel()]), extractor
+    # poisson is only valid for soccer and handled above
+    return PoissonModel(), extractor
 
 
 @click.group()
@@ -26,13 +67,17 @@ def main() -> None:
 
 
 @main.command()
-@click.option("--sport", required=True, type=click.Choice(["nfl", "soccer"]))
+@click.option(
+    "--sport",
+    required=True,
+    type=click.Choice(["nfl", "nba", "mlb", "nhl", "soccer"]),
+)
 @click.option("--data", required=True, type=click.Path(exists=True))
 @click.option(
     "--model",
     "model_name",
     default="elo",
-    type=click.Choice(["elo", "logistic", "poisson"]),
+    type=click.Choice(["elo", "logistic", "poisson", "gradient_boosting", "quantile", "ensemble"]),
 )
 @click.option("--min-edge", default=0.02, show_default=True, type=float)
 @click.option("--bankroll", default=1000.0, show_default=True, type=float)
@@ -84,15 +129,7 @@ def backtest(
     games = CSVDataLoader().load(data)
     click.echo(f"Loaded {len(games)} games from {data}")
 
-    if sport == "nfl" and model_name == "logistic":
-        model = LogisticRegressionModel()
-        extractor = NFLFeatureExtractor(k_factor=k_factor, use_mov=use_mov)
-    elif sport == "nfl":
-        model = EloModel(k_factor=k_factor, use_mov=use_mov)
-        extractor = NFLFeatureExtractor(k_factor=k_factor, use_mov=use_mov)
-    else:
-        model = PoissonModel()
-        extractor = SoccerFeatureExtractor()
+    model, extractor = _build_model_and_extractor(sport, model_name, k_factor, use_mov)
 
     pipeline = BacktestPipeline(
         model=model,
@@ -130,7 +167,11 @@ def backtest(
 
 
 @main.command(name="paper-trade")
-@click.option("--sport", required=True, type=click.Choice(["nfl", "soccer"]))
+@click.option(
+    "--sport",
+    required=True,
+    type=click.Choice(["nfl", "nba", "mlb", "nhl", "soccer"]),
+)
 @click.option(
     "--host",
     default="http://localhost:8080",
@@ -151,9 +192,7 @@ def paper_trade(sport: str, host: str) -> None:
         with urllib.request.urlopen(bets_url) as resp:  # noqa: S310
             bets = json.loads(resp.read())
     except urllib.error.URLError as exc:
-        click.echo(
-            f"Error connecting to paper-trade service at {host}: {exc}", err=True
-        )
+        click.echo(f"Error connecting to paper-trade service at {host}: {exc}", err=True)
         sys.exit(1)
 
     click.echo(f"\nPaper trade performance ({sport})")

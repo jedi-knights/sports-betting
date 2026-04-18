@@ -176,9 +176,7 @@ class BacktestPipeline:
         probs: list[float] = []
         outcomes: list[int] = []
         for cal_game in cal_games:
-            earlier = [
-                e for e in fit_examples if e.feature_set.as_of < cal_game.game_date
-            ]
+            earlier = [e for e in fit_examples if e.feature_set.as_of < cal_game.game_date]
             if not earlier:
                 continue
             try:

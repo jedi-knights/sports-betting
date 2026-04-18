@@ -113,9 +113,7 @@ class EloModel:
 
         k_eff = self._k_factor * self._mov_multiplier(home_score, away_score)
 
-        self._ratings[home_team] = self.rating(home_team) + k_eff * (
-            actual_home - expected_home
-        )
+        self._ratings[home_team] = self.rating(home_team) + k_eff * (actual_home - expected_home)
         self._ratings[away_team] = self.rating(away_team) + k_eff * (
             (1.0 - actual_home) - (1.0 - expected_home)
         )

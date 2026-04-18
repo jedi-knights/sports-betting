@@ -94,9 +94,7 @@ def _make_fitted_binary_model() -> CalibratedModel:
     inner.fit(examples)
 
     probs = [inner.predict(ex.feature_set).home_win for ex in examples]
-    outcomes = [
-        1 if ex.outcome.home_score > ex.outcome.away_score else 0 for ex in examples
-    ]
+    outcomes = [1 if ex.outcome.home_score > ex.outcome.away_score else 0 for ex in examples]
     model = CalibratedModel(inner, PlattScaler())
     model.fit_calibrator(probs, outcomes)
     return model
@@ -167,9 +165,7 @@ class TestCalibratedModelWithDraw:
         poisson = PoissonModel()
         features = _soccer_features()
 
-        raw_probs = [
-            poisson.predict(_soccer_features(ha, 1.0)).home_win for ha in [0.5, 2.0]
-        ]
+        raw_probs = [poisson.predict(_soccer_features(ha, 1.0)).home_win for ha in [0.5, 2.0]]
         outcomes = [0, 1]
 
         model = CalibratedModel(poisson, PlattScaler())
@@ -180,9 +176,7 @@ class TestCalibratedModelWithDraw:
 
     def test_probabilities_sum_to_one_with_draw(self) -> None:
         poisson = PoissonModel()
-        raw_probs = [
-            poisson.predict(_soccer_features(ha, 1.0)).home_win for ha in [0.5, 2.0]
-        ]
+        raw_probs = [poisson.predict(_soccer_features(ha, 1.0)).home_win for ha in [0.5, 2.0]]
         outcomes = [0, 1]
 
         model = CalibratedModel(poisson, PlattScaler())

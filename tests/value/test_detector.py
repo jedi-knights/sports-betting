@@ -43,18 +43,14 @@ class TestMinimumEdgeDetectorDetect:
     def test_returns_value_bet_when_edge_exceeds_threshold(self) -> None:
         # 0.55 × 2.10 − 1 = 0.155 > 0.02
         detector = MinimumEdgeDetector(min_edge=0.02)
-        result = detector.detect(
-            _make_estimate(home_win=0.55), [_make_line("home_win", 2.10)]
-        )
+        result = detector.detect(_make_estimate(home_win=0.55), [_make_line("home_win", 2.10)])
         assert len(result) == 1
         assert result[0].side == "home_win"
 
     def test_returns_empty_when_no_edge(self) -> None:
         # 0.40 × 2.10 − 1 = −0.16 < 0.02
         detector = MinimumEdgeDetector(min_edge=0.02)
-        result = detector.detect(
-            _make_estimate(home_win=0.40), [_make_line("home_win", 2.10)]
-        )
+        result = detector.detect(_make_estimate(home_win=0.40), [_make_line("home_win", 2.10)])
         assert result == []
 
     def test_empty_lines_returns_empty(self) -> None:
@@ -64,9 +60,7 @@ class TestMinimumEdgeDetectorDetect:
     def test_respects_custom_min_edge_threshold(self) -> None:
         # 0.52 × 2.10 − 1 = 0.092, below min_edge=0.10
         detector = MinimumEdgeDetector(min_edge=0.10)
-        result = detector.detect(
-            _make_estimate(home_win=0.52), [_make_line("home_win", 2.10)]
-        )
+        result = detector.detect(_make_estimate(home_win=0.52), [_make_line("home_win", 2.10)])
         assert result == []
 
     def test_detects_away_win_side(self) -> None:
@@ -119,17 +113,13 @@ class TestMinimumEdgeDetectorDetect:
 
     def test_value_bet_is_correct_type(self) -> None:
         detector = MinimumEdgeDetector(min_edge=0.02)
-        result = detector.detect(
-            _make_estimate(home_win=0.55), [_make_line("home_win", 2.10)]
-        )
+        result = detector.detect(_make_estimate(home_win=0.55), [_make_line("home_win", 2.10)])
         assert isinstance(result[0], ValueBet)
 
     def test_edge_exactly_at_threshold_is_detected(self) -> None:
         # min_edge=0.155 and EV=0.155 → should be included (>=)
         detector = MinimumEdgeDetector(min_edge=0.155)
-        result = detector.detect(
-            _make_estimate(home_win=0.55), [_make_line("home_win", 2.10)]
-        )
+        result = detector.detect(_make_estimate(home_win=0.55), [_make_line("home_win", 2.10)])
         assert len(result) == 1
 
     def test_detected_at_matches_estimate_generated_at(self) -> None:

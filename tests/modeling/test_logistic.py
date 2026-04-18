@@ -57,14 +57,10 @@ def _build_training_data() -> list[TrainingExample]:
     examples = []
     day = 1
     for _ in range(10):
-        examples.append(
-            _make_example(elo_diff=200.0, home_score=3, away_score=1, day=day)
-        )
+        examples.append(_make_example(elo_diff=200.0, home_score=3, away_score=1, day=day))
         day += 1
     for _ in range(10):
-        examples.append(
-            _make_example(elo_diff=-200.0, home_score=1, away_score=3, day=day)
-        )
+        examples.append(_make_example(elo_diff=-200.0, home_score=1, away_score=3, day=day))
         day += 1
     return examples
 
@@ -180,13 +176,9 @@ class TestLogisticRegressionScaling:
 
         examples = []
         for i in range(10):
-            examples.append(
-                _multiscale_example(1600.0, 1400.0, 0.8, 0.2, 3, 1, day=i + 1)
-            )
+            examples.append(_multiscale_example(1600.0, 1400.0, 0.8, 0.2, 3, 1, day=i + 1))
         for i in range(10, 20):
-            examples.append(
-                _multiscale_example(1400.0, 1600.0, 0.2, 0.8, 1, 3, day=i + 1)
-            )
+            examples.append(_multiscale_example(1400.0, 1600.0, 0.2, 0.8, 1, 3, day=i + 1))
 
         model = LogisticRegressionModel()
         model.fit(examples)

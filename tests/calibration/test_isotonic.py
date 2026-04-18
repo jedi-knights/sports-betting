@@ -76,5 +76,5 @@ class TestIsotonicCalibratorTransform:
         outcomes = [0, 0, 1, 1]
         cal.fit(probs, outcomes)
         result = cal.transform([0.1, 0.3, 0.5, 0.7, 0.9])
-        for a, b in zip(result, result[1:]):
+        for a, b in zip(result, result[1:], strict=False):
             assert b >= a

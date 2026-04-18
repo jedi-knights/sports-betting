@@ -33,7 +33,5 @@ class TestExpectedValue:
         assert isinstance(expected_value(0.55, 2.10), float)
 
     @pytest.mark.parametrize("prob,odds", [(0.0, 2.0), (1.0, 2.0)])
-    def test_boundary_probabilities_do_not_raise(
-        self, prob: float, odds: float
-    ) -> None:
+    def test_boundary_probabilities_do_not_raise(self, prob: float, odds: float) -> None:
         expected_value(prob, odds)  # should not raise

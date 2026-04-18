@@ -96,33 +96,21 @@ class TestKellySizerFullKelly:
 
 class TestKellySizerHalfKelly:
     def test_stake_is_half_of_full_kelly(self) -> None:
-        full = KellySizer(fraction=1.0).size(
-            edge=0.10, decimal_odds=2.0, bankroll=1000.0
-        )
-        half = KellySizer(fraction=0.5).size(
-            edge=0.10, decimal_odds=2.0, bankroll=1000.0
-        )
+        full = KellySizer(fraction=1.0).size(edge=0.10, decimal_odds=2.0, bankroll=1000.0)
+        half = KellySizer(fraction=0.5).size(edge=0.10, decimal_odds=2.0, bankroll=1000.0)
         assert abs(half.stake - full.stake / 2) < 1e-9
 
     def test_fraction_field_adjusted(self) -> None:
-        result = KellySizer(fraction=0.5).size(
-            edge=0.10, decimal_odds=2.0, bankroll=1000.0
-        )
+        result = KellySizer(fraction=0.5).size(edge=0.10, decimal_odds=2.0, bankroll=1000.0)
         assert abs(result.fraction - 0.05) < 1e-9
 
 
 class TestKellySizerQuarterKelly:
     def test_stake_is_quarter_of_full_kelly(self) -> None:
-        full = KellySizer(fraction=1.0).size(
-            edge=0.10, decimal_odds=2.0, bankroll=1000.0
-        )
-        quarter = KellySizer(fraction=0.25).size(
-            edge=0.10, decimal_odds=2.0, bankroll=1000.0
-        )
+        full = KellySizer(fraction=1.0).size(edge=0.10, decimal_odds=2.0, bankroll=1000.0)
+        quarter = KellySizer(fraction=0.25).size(edge=0.10, decimal_odds=2.0, bankroll=1000.0)
         assert abs(quarter.stake - full.stake / 4) < 1e-9
 
     def test_fraction_field_adjusted(self) -> None:
-        result = KellySizer(fraction=0.25).size(
-            edge=0.10, decimal_odds=2.0, bankroll=1000.0
-        )
+        result = KellySizer(fraction=0.25).size(edge=0.10, decimal_odds=2.0, bankroll=1000.0)
         assert abs(result.fraction - 0.025) < 1e-9

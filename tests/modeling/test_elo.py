@@ -39,9 +39,7 @@ def _make_example(
     )
 
 
-def _predict_features(
-    home: str, away: str, home_elo: float, away_elo: float
-) -> FeatureSet:
+def _predict_features(home: str, away: str, home_elo: float, away_elo: float) -> FeatureSet:
     return FeatureSet(
         event_id="pred",
         sport="nfl",

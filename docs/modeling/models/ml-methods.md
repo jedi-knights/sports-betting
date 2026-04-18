@@ -58,6 +58,10 @@ model.fit(X_train, y_train,
           early_stopping_rounds=50)
 ```
 
+### Implementation in This Repository
+
+This repository uses scikit-learn's `GradientBoostingClassifier` as the gradient boosting implementation. It wraps the same sequential tree-building algorithm with transparent support for both binary outcomes (NFL, NBA, MLB, NHL) and three-way outcomes (soccer). The calibration requirement above applies equally here — always wrap with a `CalibratedModel` before value analysis. See [`src/bet/modeling/gradient_boosting.py`](../../../src/bet/modeling/gradient_boosting.py).
+
 ## Random Forests
 
 Random Forests build many decision trees in parallel on bootstrapped subsets of the data, each tree also seeing a random subset of features. The final prediction is the average (or majority vote) of all trees.
@@ -100,6 +104,8 @@ Rather than choosing one model, ensemble approaches combine predictions from mul
 3. Evaluate the ensemble against each individual model on a held-out test set
 
 Ensembles reduce variance by averaging out individual model errors. The gain is largest when the component models make different types of errors — a logistic regression (linear decision boundary) and XGBoost (non-linear) often complement each other.
+
+This repository's ensemble implementation accepts any list of `Model` instances, averages their probability outputs, and re-normalises to sum to 1.0. See [`src/bet/modeling/ensemble.py`](../../../src/bet/modeling/ensemble.py).
 
 ## Comparative Performance Summary
 

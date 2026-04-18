@@ -6,9 +6,7 @@ from bet.tracking.metrics import compute_performance_report
 from bet.tracking.types import BetResult, PerformanceReport
 
 
-def _win(
-    stake: float = 100.0, odds: float = 2.0, clv: float | None = None
-) -> BetResult:
+def _win(stake: float = 100.0, odds: float = 2.0, clv: float | None = None) -> BetResult:
     return BetResult(
         bet_id="b",
         stake=stake,
@@ -21,9 +19,7 @@ def _win(
     )
 
 
-def _loss(
-    stake: float = 100.0, odds: float = 2.0, clv: float | None = None
-) -> BetResult:
+def _loss(stake: float = 100.0, odds: float = 2.0, clv: float | None = None) -> BetResult:
     return BetResult(
         bet_id="b",
         stake=stake,

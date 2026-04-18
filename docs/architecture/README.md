@@ -205,9 +205,15 @@ Work through phases in order. Check off each item when complete. Do not advance 
 - [x] Define `FeatureExtractor` protocol (Python): per-sport feature pipeline abstraction
 - [x] Implement Elo model (NFL baseline): rating update, expected score, win probability
 - [x] Implement Elo feature extractor for NFL
+- [x] Implement Elo feature extractor for NBA (rest days default 2.0, no weather features)
+- [x] Implement Elo feature extractor for MLB (rest days default 1.0, lower K-factor for high-variance sport)
+- [x] Implement Elo feature extractor for NHL (rest days default 2.0, binary outcomes including OT/SO wins)
 - [x] Implement Poisson model: attack/defense strength estimation, Dixon-Coles correction
 - [x] Implement Poisson feature extractor for soccer
 - [x] Implement logistic regression model: log-loss training objective, L2 regularization
+- [x] Implement gradient boosting model (`GradientBoostingClassifier`): non-linear, no feature scaling required; see [`docs/modeling/models/ml-methods.md`](../modeling/models/ml-methods.md)
+- [x] Implement ensemble model: averages probability outputs from any list of `Model` instances; re-normalises to sum 1.0
+- [x] Implement quantile regression model: fits median + spread; converts margin distribution to win probability via normal CDF; `predict_quantiles()` available for spread/totals markets; see [`docs/modeling/models/quantile-regression.md`](../modeling/models/quantile-regression.md)
 - [x] Unit tests for each model and feature extractor
 
 ### Phase 3 — Calibration
@@ -257,8 +263,9 @@ Work through phases in order. Check off each item when complete. Do not advance 
 - [x] Add lookahead bias guard: assert no future data is accessible at prediction time
 - [x] Implement CLI command: `bet backtest --sport nfl --data games.csv --model elo`
 - [x] Implement CLI command: `bet backtest --sport soccer --data games.csv --model poisson`
+- [x] Implement CLI command: supports `--sport [nfl|nba|mlb|nhl|soccer]` and `--model [elo|logistic|poisson|gradient_boosting|quantile|ensemble]`
 - [x] Generate end-of-run performance report to stdout and JSON file
-- [x] Integration test: run full backtesting pipeline on a small fixture dataset
+- [x] Integration tests: full pipeline for every sport × default model combination (`tests/integration/test_backtest_pipeline.py`)
 
 ### Phase 8 — Paper Trading *(after backtesting is validated)*
 
@@ -277,6 +284,7 @@ Work through phases in order. Check off each item when complete. Do not advance 
 - [x] Expose REST API: `GET /paper/bets`, `GET /paper/performance`
 - [x] Implement CLI command: `bet paper-trade --sport nfl` (connects to the Go service)
 - [x] Integration test: full paper trading loop end-to-end with `SimulatedBookmakerClient`
+- [x] Unit tests: HTTP handlers (`GET /paper/bets`, `GET /paper/performance`), bet resolution, and `envOr` helper (`services/paper-trade/main_test.go`)
 
 **Containerization**
 - [x] Write `services/market-data/Dockerfile` (multi-stage: builder + distroless)
@@ -294,6 +302,12 @@ Work through phases in order. Check off each item when complete. Do not advance 
 - [x] Add bet placement safety checks: maximum stake cap, account balance floor, duplicate bet guard
 - [x] Integration test: end-to-end live placement on a small stake with a single bookmaker
 - [x] Smoke test: confirm CLV tracking works against a real closing line
+
+### Phase 10 — CI and Quality
+
+- [x] Add `.github/workflows/go.yml`: runs `go vet` and `go test ./...` on push and pull requests
+- [x] Add `.github/workflows/python.yml`: runs `ruff check` and `pytest` on push and pull requests
+- [x] Add `ruff` configuration to `pyproject.toml` (line-length, target Python version, rule set)
 
 ---
 
