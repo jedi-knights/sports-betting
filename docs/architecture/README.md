@@ -231,13 +231,13 @@ Work through phases in order. Check off each item when complete. Do not advance 
 
 ### Phase 5 — Bankroll Management
 
-- [ ] Define `Bankroll` and `BetSizing` types
-- [ ] Define `Sizer` interface/protocol (Python + Go)
-- [ ] Implement full Kelly Criterion
-- [ ] Implement ½ Kelly and ¼ Kelly
-- [ ] Implement flat unit staking
-- [ ] Add ruin probability estimator: given Kelly fraction, bankroll, and edge, estimate drawdown risk
-- [ ] Unit tests for all sizers
+- [x] Define `Bankroll` and `BetSizing` types
+- [x] Define `Sizer` interface/protocol (Python + Go)
+- [x] Implement full Kelly Criterion
+- [x] Implement ½ Kelly and ¼ Kelly
+- [x] Implement flat unit staking
+- [x] Add ruin probability estimator: given Kelly fraction, bankroll, and edge, estimate drawdown risk
+- [x] Unit tests for all sizers
 
 ### Phase 6 — Bet Tracking
 
