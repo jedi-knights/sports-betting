@@ -8,6 +8,20 @@ When writing or editing any Markdown file in this repository, cross-link related
 - Link on first mention within each section, not every occurrence
 - The glossary (`docs/glossary.md`) is the anchor reference — link to it when introducing a term that appears there
 
+## Glossary Lookup Protocol
+
+Whenever the user asks what something is (e.g., "what is a moneyline?", "what does vig mean?", "explain implied probability"), follow these steps before responding:
+
+1. **Read `docs/glossary.md`** and search for the term.
+2. **If the term is already defined**: answer directly using the glossary definition as your source, and note which section it appears in.
+3. **If the term is not yet defined**:
+   - Add a clear, beginner-friendly definition to the appropriate section in `docs/glossary.md`
+   - Check all other documents in `docs/` (and `docs/models/`) for any that discuss the term in depth — add relative links from the new glossary entry to those documents
+   - Then respond to the user using the definition you just wrote
+4. **When adding or editing any glossary entry**: scan the existing docs for related documents and add links where relevant. The glossary is the navigation hub — entries for topics that have a dedicated document should always link to it.
+
+Always read the glossary file first. Never answer a "what is" question in this repo from memory alone without first checking whether the glossary already has or needs an entry.
+
 ## Repository Context
 
 This is a research and tooling repository for sports betting models. The owner is new to the field. When writing documentation, explain concepts clearly and define terms — do not assume prior knowledge of sports betting, statistics, or machine learning.
