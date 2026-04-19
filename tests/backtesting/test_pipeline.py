@@ -322,6 +322,51 @@ class TestBacktestPipelineSoccer:
             "40 games. The model or extractor is likely not producing predictions."
         )
 
+    def test_pipeline_skips_games_without_odds(self) -> None:
+        """Games with None odds (e.g. from ASA / model-only leagues) must not crash.
+
+        The pipeline should silently skip market-line construction for games
+        that have no odds and produce an empty result set rather than raising.
+        """
+        # Arrange — build soccer games with all odds set to None
+        base = datetime(2023, 8, 1, tzinfo=UTC)
+        teams = ["Ajax", "Barca", "Chelsea", "Dortmund", "Everton"]
+        games = [
+            HistoricalGame(
+                event_id=f"nwsl-{i}",
+                sport="nwsl",
+                home_team=teams[i % len(teams)],
+                away_team=teams[(i + 1) % len(teams)],
+                game_date=base + timedelta(weeks=i),
+                home_score=i % 3,
+                away_score=(i + 1) % 3,
+                home_win_odds=None,
+                away_win_odds=None,
+                draw_odds=None,
+                closing_home_win_odds=None,
+                closing_away_win_odds=None,
+                closing_draw_odds=None,
+            )
+            for i in range(30)
+        ]
+        from bet.features.nwsl import NWSLFeatureExtractor
+        from bet.modeling.poisson import PoissonModel
+
+        pipeline = BacktestPipeline(
+            model=PoissonModel(),
+            extractor=NWSLFeatureExtractor(),
+            detector=MinimumEdgeDetector(min_edge=0.0),
+            sizer=KellySizer(fraction=0.25),
+            bankroll=1000.0,
+            min_train_games=10,
+        )
+
+        # Act — must not raise
+        results = pipeline.run(games)
+
+        # Assert — no odds means no market lines means no bets
+        assert results == []
+
     def test_soccer_draw_bets_possible(self) -> None:
         """At least one bet with a _draw suffix appears in the results.
 

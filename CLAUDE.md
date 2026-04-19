@@ -26,6 +26,15 @@ Always read the glossary file first. Never answer a "what is" question in this r
 
 This is a research and tooling repository for sports betting models. The owner is new to the field. When writing documentation, explain concepts clearly and define terms — do not assume prior knowledge of sports betting, statistics, or machine learning.
 
+## Data Provider Preferences
+
+Always prefer free data sources over paid ones. The goal is to avoid cost explosion during the research and development phase.
+
+- Use free public APIs (e.g., American Soccer Analysis, open sports data projects) before considering any paid or freemium service
+- When a free source lacks a field (e.g., odds), use a placeholder value or make the field optional rather than reaching for a paid API
+- If a paid API is the only option for a given data type, raise this explicitly with the user before implementing — never silently introduce a new cost
+- The Odds API free tier is limited to 500 requests/month; the poll interval is set to 86400s (once/day) to stay within budget
+
 ## Docker & Infrastructure Conventions
 
 All backend services (Go) are containerized. Follow these rules consistently:

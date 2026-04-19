@@ -75,6 +75,45 @@ class TestCSVDataLoader:
         assert CSVDataLoader().load(str(csv_file)) == []
 
 
+class TestCSVDataLoaderOptionalOdds:
+    _HEADER = (
+        "event_id,sport,home_team,away_team,game_date,"
+        "home_score,away_score,home_win_odds,away_win_odds,draw_odds,"
+        "closing_home_win_odds,closing_away_win_odds,closing_draw_odds\n"
+    )
+
+    def test_empty_home_win_odds_parses_as_none(self, tmp_path: Path) -> None:
+        # Arrange
+        csv_content = self._HEADER + "evt1,nwsl,alpha,bravo,2024-03-01T00:00:00+00:00,2,1,,,,, ,\n"
+        f = tmp_path / "no_odds.csv"
+        f.write_text(csv_content)
+
+        # Act
+        games = CSVDataLoader().load(str(f))
+
+        # Assert
+        assert games[0].home_win_odds is None
+        assert games[0].away_win_odds is None
+        assert games[0].closing_home_win_odds is None
+        assert games[0].closing_away_win_odds is None
+
+    def test_present_odds_still_parse_as_float(self, tmp_path: Path) -> None:
+        # Arrange — backward compat: existing rows with odds must not regress
+        csv_content = (
+            self._HEADER
+            + "evt1,nfl,alpha,bravo,2024-03-01T00:00:00+00:00,24,17,1.80,2.10,,1.82,2.08,\n"
+        )
+        f = tmp_path / "with_odds.csv"
+        f.write_text(csv_content)
+
+        # Act
+        games = CSVDataLoader().load(str(f))
+
+        # Assert
+        assert abs(games[0].home_win_odds - 1.80) < 1e-9
+        assert abs(games[0].closing_home_win_odds - 1.82) < 1e-9
+
+
 class TestCSVDataLoaderErrorHandling:
     def test_load_raises_on_malformed_score(self, tmp_path: Path) -> None:
         # Arrange

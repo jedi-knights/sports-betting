@@ -286,20 +286,25 @@ def _to_training_example(game: HistoricalGame) -> TrainingExample:
 
 
 def _to_market_lines(game: HistoricalGame) -> list[MarketLine]:
-    lines = [
-        MarketLine(
-            market_id=game.event_id,
-            side="home_win",
-            decimal_odds=game.home_win_odds,
-            implied_prob=1.0 / game.home_win_odds,
-        ),
-        MarketLine(
-            market_id=game.event_id,
-            side="away_win",
-            decimal_odds=game.away_win_odds,
-            implied_prob=1.0 / game.away_win_odds,
-        ),
-    ]
+    lines: list[MarketLine] = []
+    if game.home_win_odds is not None:
+        lines.append(
+            MarketLine(
+                market_id=game.event_id,
+                side="home_win",
+                decimal_odds=game.home_win_odds,
+                implied_prob=1.0 / game.home_win_odds,
+            )
+        )
+    if game.away_win_odds is not None:
+        lines.append(
+            MarketLine(
+                market_id=game.event_id,
+                side="away_win",
+                decimal_odds=game.away_win_odds,
+                implied_prob=1.0 / game.away_win_odds,
+            )
+        )
     if game.draw_odds is not None:
         lines.append(
             MarketLine(

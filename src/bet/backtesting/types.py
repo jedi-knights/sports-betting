@@ -21,12 +21,18 @@ class HistoricalGame:
         game_date: UTC datetime when the game was played.
         home_score: Final score for the home team.
         away_score: Final score for the away team.
-        home_win_odds: Opening decimal odds for home win.
-        away_win_odds: Opening decimal odds for away win.
-        draw_odds: Opening decimal odds for draw. ``None`` for binary sports.
+        home_win_odds: Opening decimal odds for home win. ``None`` when no
+            bookmaker data is available (e.g. model-only leagues).
+        away_win_odds: Opening decimal odds for away win. ``None`` when no
+            bookmaker data is available.
+        draw_odds: Opening decimal odds for draw. ``None`` for binary sports
+            or when no bookmaker data is available.
         closing_home_win_odds: Closing decimal odds for home win (for CLV).
+            ``None`` when unavailable.
         closing_away_win_odds: Closing decimal odds for away win (for CLV).
-        closing_draw_odds: Closing decimal odds for draw. ``None`` for binary sports.
+            ``None`` when unavailable.
+        closing_draw_odds: Closing decimal odds for draw. ``None`` for binary
+            sports or when unavailable.
         temperature: Air temperature in Fahrenheit at game time. ``None`` when
             not available; the feature extractor defaults to 60 °F in that case.
         wind_mph: Wind speed in mph at game time. ``None`` when not available;
@@ -42,11 +48,11 @@ class HistoricalGame:
     game_date: datetime
     home_score: int
     away_score: int
-    home_win_odds: float
-    away_win_odds: float
+    home_win_odds: float | None
+    away_win_odds: float | None
     draw_odds: float | None
-    closing_home_win_odds: float
-    closing_away_win_odds: float
+    closing_home_win_odds: float | None
+    closing_away_win_odds: float | None
     closing_draw_odds: float | None
     temperature: float | None = field(default=None)
     wind_mph: float | None = field(default=None)

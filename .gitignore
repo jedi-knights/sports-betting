@@ -1,6 +1,7 @@
 # Local data — persisted outside Docker volumes for development use
 # Never commit raw data, exports, or fixture CSVs
-data/
+# Leading slash anchors to the repo root so src/bet/data/ and tests/data/ are not excluded.
+/data/
 tmp/
 
 # Secrets — use .env.example to document required variables
