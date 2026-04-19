@@ -85,6 +85,8 @@ class QuantileRegressionModel:
             model.fit(x, y)
             self._quantile_models[q] = model
 
+        # Floor at 1.0 prevents division-by-zero when all training margins are identical.
+        # predict() also applies max(..., 1.0) as a safety net.
         self._margin_std = float(np.std(y)) if len(y) > 1 else 1.0
         self._fitted = True
 
@@ -109,6 +111,7 @@ class QuantileRegressionModel:
 
         # P(home_win) = P(margin > 0) ≈ Φ(μ / σ)
         # where μ = predicted median and σ = training margin std dev.
+        # Minimum spread of 1 point prevents P(home_win) collapsing to 0.5 on every prediction.
         std = max(self._margin_std, 1.0)
         home_win = float(stats.norm.cdf(predicted_median / std))
         home_win = max(1e-6, min(1.0 - 1e-6, home_win))

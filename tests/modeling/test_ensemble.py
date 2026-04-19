@@ -160,3 +160,53 @@ class TestEnsembleModelBasics:
 
         # Assert
         assert 0.0 < result.home_win < 1.0
+
+
+class TestEnsembleMixedDrawModels:
+    def test_mixed_draw_models_raises(self) -> None:
+        """Mixing models that produce draws with models that don't is ambiguous."""
+
+        # Arrange — create stub models using mocks
+        from unittest.mock import MagicMock
+
+        from bet.modeling.ensemble import EnsembleModel
+        from bet.modeling.types import ProbabilityEstimate
+
+        dt = datetime(2024, 1, 1, tzinfo=UTC)
+
+        # Stub model with draw
+        model_with_draw = MagicMock()
+        model_with_draw.predict.return_value = ProbabilityEstimate(
+            event_id="test",
+            model_id="with_draw",
+            generated_at=dt,
+            home_win=0.4,
+            away_win=0.3,
+            draw=0.3,
+        )
+
+        # Stub model without draw
+        model_without_draw = MagicMock()
+        model_without_draw.predict.return_value = ProbabilityEstimate(
+            event_id="test",
+            model_id="no_draw",
+            generated_at=dt,
+            home_win=0.6,
+            away_win=0.4,
+            draw=None,
+        )
+
+        ensemble = EnsembleModel([model_with_draw, model_without_draw])
+
+        features = FeatureSet(
+            event_id="test",
+            sport="nfl",
+            home_team="a",
+            away_team="b",
+            as_of=dt,
+            features={"home_elo": 1500.0, "away_elo": 1500.0, "elo_diff": 0.0},
+        )
+
+        # Act / Assert
+        with pytest.raises(ValueError, match="mixing"):
+            ensemble.predict(features)

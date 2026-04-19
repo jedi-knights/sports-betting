@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import numpy as np
+import pytest
 
 from bet.modeling.poisson import PoissonModel
 from bet.modeling.types import (
@@ -147,3 +148,49 @@ class TestPoissonScoreMatrix:
         home_win = float(np.sum(np.tril(matrix, -1)))
         # With lambda_home=3, lambda_away=0.5, home should win most often
         assert home_win > 0.5
+
+
+class TestPoissonModelGuards:
+    def test_negative_rho_accepted(self) -> None:
+        # Arrange / Act / Assert — should not raise
+        model = PoissonModel(rho=-0.13)
+        assert model._rho == -0.13
+
+    def test_positive_rho_raises(self) -> None:
+        # Arrange / Act / Assert
+        with pytest.raises(ValueError, match="rho must be"):
+            PoissonModel(rho=0.5)
+
+    def test_zero_rho_accepted(self) -> None:
+        # Arrange / Act / Assert — rho=0 disables the correction; should be fine
+        model = PoissonModel(rho=0.0)
+        assert model._rho == 0.0
+
+    def test_predict_raises_when_score_matrix_sum_nonpositive(self) -> None:
+        """A subclass that returns a zero matrix should trigger the guard in predict."""
+
+        # Arrange
+        class _ZeroMatrixPoisson(PoissonModel):
+            def _score_matrix(self, lh: float, la: float) -> np.ndarray:
+                import numpy as _np
+
+                return _np.zeros((self._max_goals + 1, self._max_goals + 1))
+
+        model = _ZeroMatrixPoisson()
+        features = FeatureSet(
+            event_id="guard-test",
+            sport="soccer",
+            home_team="a",
+            away_team="b",
+            as_of=datetime(2024, 1, 1, tzinfo=UTC),
+            features={
+                "home_attack": 1.0,
+                "home_defense": 1.0,
+                "away_attack": 1.0,
+                "away_defense": 1.0,
+            },
+        )
+
+        # Act / Assert
+        with pytest.raises(ValueError, match="score matrix sum"):
+            model.predict(features)

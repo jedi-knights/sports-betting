@@ -2,7 +2,10 @@
 // identifying and tracking positive expected-value betting opportunities.
 package valueanalysis
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // Side identifies which outcome in a market a line or bet refers to.
 type Side string
@@ -55,7 +58,14 @@ func ExpectedValue(modelProb, decimalOdds float64) float64 {
 //
 // Positive CLV means the bet obtained better odds than the closing line —
 // the standard evidence of genuine predictive edge.
-func ComputeCLV(bet ValueBet, closingDecimalOdds float64) CLVResult {
+//
+// Returns an error when either closingDecimalOdds or bet.DecimalOdds is not
+// positive, which would produce division-by-zero or infinite results.
+func ComputeCLV(bet ValueBet, closingDecimalOdds float64) (CLVResult, error) {
+	if closingDecimalOdds <= 0 || bet.DecimalOdds <= 0 {
+		return CLVResult{}, fmt.Errorf("odds must be positive (closing=%.4f, bet=%.4f)",
+			closingDecimalOdds, bet.DecimalOdds)
+	}
 	closingProb := 1.0 / closingDecimalOdds
 	betImpliedProb := 1.0 / bet.DecimalOdds
 	return CLVResult{
@@ -63,5 +73,5 @@ func ComputeCLV(bet ValueBet, closingDecimalOdds float64) CLVResult {
 		ClosingOdds: closingDecimalOdds,
 		ClosingProb: closingProb,
 		CLV:         closingProb - betImpliedProb,
-	}
+	}, nil
 }

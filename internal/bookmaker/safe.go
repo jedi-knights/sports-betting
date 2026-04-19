@@ -98,6 +98,10 @@ func (s *SafeBookmakerClient) PlaceBet(ctx context.Context, req BetRequest) (Bet
 	}
 
 	// --- 2. Duplicate bet guard ---
+	// The check and reservation are performed under the same lock to eliminate the
+	// TOCTOU window: two concurrent goroutines on the same market+side could both
+	// pass the TTL check before either recorded the bet. Reserving the slot first
+	// means the inner call happens with the slot already claimed.
 	key := req.MarketID + ":" + req.Side
 	s.mu.Lock()
 	if placedAt, ok := s.recentBets[key]; ok {
@@ -109,6 +113,8 @@ func (s *SafeBookmakerClient) PlaceBet(ctx context.Context, req BetRequest) (Bet
 			}, nil
 		}
 	}
+	// Reserve the slot before releasing so concurrent callers see it immediately.
+	s.recentBets[key] = s.now()
 	s.mu.Unlock()
 
 	// --- 3. Stake cap ---
@@ -118,13 +124,12 @@ func (s *SafeBookmakerClient) PlaceBet(ctx context.Context, req BetRequest) (Bet
 
 	resp, err := s.inner.PlaceBet(ctx, req)
 	if err != nil || resp.Rejected {
+		// Retract the reservation on failure so the opportunity can be retried.
+		s.mu.Lock()
+		delete(s.recentBets, key)
+		s.mu.Unlock()
 		return resp, err
 	}
-
-	// Record this bet for dedup tracking only on successful placement.
-	s.mu.Lock()
-	s.recentBets[key] = s.now()
-	s.mu.Unlock()
 
 	return resp, nil
 }

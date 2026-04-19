@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from ..modeling.protocols import FeatureExtractor, Model
+import logging
+
+from ..modeling.protocols import CalibratableModel, FeatureExtractor, Model
 from ..modeling.types import ActualOutcome, FeatureSet, TrainingExample
 from ..sizing.protocols import Sizer
 from ..tracking.types import BetResult
@@ -10,6 +12,8 @@ from ..value.detector import MinimumEdgeDetector
 from ..value.types import MarketLine
 from .guard import assert_no_lookahead
 from .types import HistoricalGame
+
+_logger = logging.getLogger(__name__)
 
 
 def _weather_kwargs(game: HistoricalGame) -> dict[str, object]:
@@ -106,7 +110,13 @@ class BacktestPipeline:
 
             try:
                 self._fit(train_games, train_examples)
-            except Exception:
+            except Exception as exc:
+                _logger.warning(
+                    "fit failed for event %s: %s",
+                    test_game.event_id,
+                    exc,
+                    exc_info=True,
+                )
                 continue
 
             try:
@@ -118,12 +128,22 @@ class BacktestPipeline:
                     as_of=test_game.game_date,
                     **weather,
                 )
-            except Exception:
+            except Exception as exc:
+                _logger.warning(
+                    "feature extraction failed for event %s: %s",
+                    test_game.event_id,
+                    exc,
+                )
                 continue
 
             try:
                 estimate = self._model.predict(features)
-            except Exception:
+            except Exception as exc:
+                _logger.warning(
+                    "predict failed for event %s: %s",
+                    test_game.event_id,
+                    exc,
+                )
                 continue
 
             lines = _to_market_lines(test_game)
@@ -156,7 +176,7 @@ class BacktestPipeline:
     ) -> None:
         game_lookup = {g.event_id: g for g in train_games}
 
-        if not hasattr(self._model, "fit_calibrator"):
+        if not isinstance(self._model, CalibratableModel):
             self._extractor.fit(train_examples)
             feature_examples = self._populate_features(train_examples, game_lookup)
             self._model.fit(feature_examples or train_examples)
@@ -189,14 +209,21 @@ class BacktestPipeline:
                     as_of=cal_game.game_date,
                     **cal_weather,
                 )
-                raw = self._model.predict_raw(fs)  # type: ignore[attr-defined]
+                calibratable = self._model
+                raw = calibratable.predict_raw(fs)
                 probs.append(raw.home_win)
                 outcomes.append(1 if cal_game.home_score > cal_game.away_score else 0)
-            except Exception:
+            except Exception as exc:
+                _logger.debug(
+                    "calibration fold failed for event %s: %s",
+                    cal_game.event_id,
+                    exc,
+                )
                 continue
 
         if len(probs) >= 2:
-            self._model.fit_calibrator(probs, outcomes)
+            calibratable = self._model
+            calibratable.fit_calibrator(probs, outcomes)
 
     def _populate_features(
         self,
@@ -229,7 +256,12 @@ class BacktestPipeline:
                     **weather,
                 )
                 populated.append(TrainingExample(feature_set=fs, outcome=ex.outcome))
-            except Exception:
+            except Exception as exc:
+                _logger.warning(
+                    "feature population failed for event %s: %s",
+                    ex.feature_set.event_id,
+                    exc,
+                )
                 continue
         return populated
 

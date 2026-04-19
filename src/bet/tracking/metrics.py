@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import statistics
 
-from bet.calibration.metrics import brier_score as _brier_score
-from bet.calibration.metrics import expected_calibration_error as _ece
-from bet.calibration.metrics import log_loss as _log_loss
-
+from ..calibration.metrics import brier_score as _brier_score
+from ..calibration.metrics import expected_calibration_error as _ece
+from ..calibration.metrics import log_loss as _log_loss
 from .types import BetResult, PerformanceReport
 
 
@@ -51,6 +50,13 @@ def compute_performance_report(results: list[BetResult]) -> PerformanceReport:
     probs = [r.model_prob for r in results]
     outcomes = [int(r.won) for r in results]
 
+    if len(results) >= 2:
+        bs: float | None = _brier_score(probs, outcomes)
+        ll: float | None = _log_loss(probs, outcomes)
+        ece: float | None = _ece(probs, outcomes)
+    else:
+        bs = ll = ece = None
+
     return PerformanceReport(
         total_bets=total_bets,
         won_bets=won_bets,
@@ -62,9 +68,9 @@ def compute_performance_report(results: list[BetResult]) -> PerformanceReport:
         max_drawdown=_max_drawdown(pnls),
         sharpe_ratio=_sharpe_ratio(pnls),
         avg_clv=avg_clv,
-        brier_score=_brier_score(probs, outcomes),
-        log_loss=_log_loss(probs, outcomes),
-        calibration_error=_ece(probs, outcomes),
+        brier_score=bs,
+        log_loss=ll,
+        calibration_error=ece,
     )
 
 

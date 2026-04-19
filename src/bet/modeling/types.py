@@ -99,3 +99,20 @@ class ProbabilityEstimate:
                 f"(home_win={self.home_win}, away_win={self.away_win}, "
                 f"draw={self.draw})"
             )
+
+
+def _outcome_label(home_score: int, away_score: int) -> str:
+    """Return the string outcome label for a game result.
+
+    Args:
+        home_score: Goals / points scored by the home team.
+        away_score: Goals / points scored by the away team.
+
+    Returns:
+        ``"home_win"``, ``"away_win"``, or ``"draw"``.
+    """
+    if home_score > away_score:
+        return "home_win"
+    if home_score < away_score:
+        return "away_win"
+    return "draw"

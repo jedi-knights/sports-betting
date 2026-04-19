@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jedi-knights/sports-betting/internal/marketdata"
@@ -32,12 +33,13 @@ type CachingLineStore struct {
 	backing marketdata.LineStore
 	cache   Cache
 	ttl     time.Duration
+	logger  *slog.Logger
 }
 
 // New returns a CachingLineStore backed by the given store and cache.
 // ttl controls how long cached values are retained before expiry.
 func New(backing marketdata.LineStore, cache Cache, ttl time.Duration) *CachingLineStore {
-	return &CachingLineStore{backing: backing, cache: cache, ttl: ttl}
+	return &CachingLineStore{backing: backing, cache: cache, ttl: ttl, logger: slog.Default()}
 }
 
 // SaveLines writes through to the backing store, then invalidates the cache
@@ -73,7 +75,9 @@ func (s *CachingLineStore) Lines(ctx context.Context, marketID string) ([]market
 		return nil, err
 	}
 	if raw, err := json.Marshal(lines); err == nil {
-		_ = s.cache.Set(ctx, key, string(raw), s.ttl)
+		if err := s.cache.Set(ctx, key, string(raw), s.ttl); err != nil {
+			s.logger.Warn("cache set failed", "key", key, "error", err)
+		}
 	}
 	return lines, nil
 }
@@ -93,7 +97,9 @@ func (s *CachingLineStore) ClosingLine(ctx context.Context, marketID string, sid
 	}
 	if line != nil {
 		if raw, err := json.Marshal(line); err == nil {
-			_ = s.cache.Set(ctx, key, string(raw), s.ttl)
+			if err := s.cache.Set(ctx, key, string(raw), s.ttl); err != nil {
+				s.logger.Warn("cache set failed", "key", key, "error", err)
+			}
 		}
 	}
 	return line, nil
@@ -112,12 +118,14 @@ func (s *CachingLineStore) Markets(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 	if raw, err := json.Marshal(ids); err == nil {
-		_ = s.cache.Set(ctx, marketsKey, string(raw), s.ttl)
+		if err := s.cache.Set(ctx, marketsKey, string(raw), s.ttl); err != nil {
+			s.logger.Warn("cache set failed", "key", marketsKey, "error", err)
+		}
 	}
 	return ids, nil
 }
 
 const marketsKey = "marketdata:markets"
 
-func linesKey(marketID string) string   { return fmt.Sprintf("marketdata:lines:%s", marketID) }
+func linesKey(marketID string) string    { return fmt.Sprintf("marketdata:lines:%s", marketID) }
 func closingKey(mID, side string) string { return fmt.Sprintf("marketdata:closing:%s:%s", mID, side) }

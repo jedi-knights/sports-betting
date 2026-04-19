@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 from datetime import UTC, datetime
+from pathlib import Path
 
 from .types import HistoricalGame
 
@@ -30,10 +31,13 @@ class CSVDataLoader:
             List of HistoricalGame objects in file order.
         """
         games: list[HistoricalGame] = []
-        with open(path, newline="") as f:
+        with Path(path).open(newline="") as f:
             reader = csv.DictReader(f)
-            for row in reader:
-                games.append(self._parse_row(row))
+            for idx, row in enumerate(reader, start=1):
+                try:
+                    games.append(self._parse_row(row))
+                except (ValueError, KeyError) as exc:
+                    raise ValueError(f"row {idx}: {exc}") from exc
         return games
 
     @staticmethod

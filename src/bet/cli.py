@@ -6,6 +6,8 @@ import json
 import sys
 from collections.abc import Callable
 from dataclasses import asdict
+from pathlib import Path
+from urllib.parse import urlparse
 
 import click
 
@@ -72,8 +74,9 @@ def _build_model_and_extractor(
             ),
             extractor,
         )
-    # poisson is only valid for soccer and handled above
-    return PoissonModel(), extractor
+    # poisson is only valid for soccer and is handled above; any other model_name
+    # reaching this point indicates an invalid combination of sport and model.
+    raise ValueError(f"model '{model_name}' is not valid for sport '{sport}'")
 
 
 @click.group()
@@ -182,9 +185,13 @@ def backtest(
 
     if output:
         report_dict = asdict(report)
-        with open(output, "w") as f:
-            json.dump(report_dict, f, indent=2)
-        click.echo(f"\nReport written to {output}")
+        try:
+            with Path(output).open("w") as f:
+                json.dump(report_dict, f, indent=2)
+            click.echo(f"\nReport written to {output}")
+        except OSError as exc:
+            click.echo(f"Error writing report to {output}: {exc}", err=True)
+            sys.exit(1)
 
     sys.exit(0)
 
@@ -255,9 +262,13 @@ def calibrate(
 
     if output:
         report_dict = {"n_predictions": len(results), "brier_score": bs, "log_loss": ll, "ece": ece}
-        with open(output, "w") as f:
-            json.dump(report_dict, f, indent=2)
-        click.echo(f"\nReport written to {output}")
+        try:
+            with Path(output).open("w") as f:
+                json.dump(report_dict, f, indent=2)
+            click.echo(f"\nReport written to {output}")
+        except OSError as exc:
+            click.echo(f"Error writing report to {output}: {exc}", err=True)
+            sys.exit(1)
 
     sys.exit(0)
 
@@ -278,6 +289,14 @@ def paper_trade(sport: str, host: str) -> None:
     """Monitor the paper-trade service and display live performance."""
     import urllib.error
     import urllib.request
+
+    parsed = urlparse(host)
+    if parsed.scheme not in ("http", "https") or parsed.hostname not in ("localhost", "127.0.0.1"):
+        click.echo(
+            "Error: --host must be http://localhost:<port> or https://localhost:<port>",
+            err=True,
+        )
+        sys.exit(1)
 
     perf_url = f"{host}/paper/performance"
     bets_url = f"{host}/paper/bets"

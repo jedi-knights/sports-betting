@@ -108,7 +108,7 @@ class TestCalibrateCommand:
 
         # Assert
         assert result.exit_code == 0
-        assert "calibrate" in result.output.lower() or "brier" in result.output.lower()
+        assert "brier" in result.output.lower()
 
     def test_calibrate_runs_on_nfl_fixture(self, tmp_path: Path) -> None:
         # Arrange

@@ -49,28 +49,28 @@ func TestComputeCLV(t *testing.T) {
 	}
 
 	t.Run("positive CLV when closing odds shorter", func(t *testing.T) {
-		result := valueanalysis.ComputeCLV(makeBet(2.20), 2.05)
+		result, _ := valueanalysis.ComputeCLV(makeBet(2.20), 2.05)
 		if result.CLV <= 0 {
 			t.Errorf("expected CLV > 0, got %v", result.CLV)
 		}
 	})
 
 	t.Run("negative CLV when closing odds longer", func(t *testing.T) {
-		result := valueanalysis.ComputeCLV(makeBet(2.20), 2.35)
+		result, _ := valueanalysis.ComputeCLV(makeBet(2.20), 2.35)
 		if result.CLV >= 0 {
 			t.Errorf("expected CLV < 0, got %v", result.CLV)
 		}
 	})
 
 	t.Run("zero CLV when odds unchanged", func(t *testing.T) {
-		result := valueanalysis.ComputeCLV(makeBet(2.20), 2.20)
+		result, _ := valueanalysis.ComputeCLV(makeBet(2.20), 2.20)
 		if result.CLV > 1e-9 || result.CLV < -1e-9 {
 			t.Errorf("expected CLV ≈ 0, got %v", result.CLV)
 		}
 	})
 
 	t.Run("closing prob is 1 over closing odds", func(t *testing.T) {
-		result := valueanalysis.ComputeCLV(makeBet(2.00), 2.00)
+		result, _ := valueanalysis.ComputeCLV(makeBet(2.00), 2.00)
 		want := 0.5
 		if result.ClosingProb > want+1e-9 || result.ClosingProb < want-1e-9 {
 			t.Errorf("ClosingProb = %v; want %v", result.ClosingProb, want)
@@ -80,11 +80,37 @@ func TestComputeCLV(t *testing.T) {
 	t.Run("CLV matches formula", func(t *testing.T) {
 		betOdds := 2.20
 		closingOdds := 2.05
-		result := valueanalysis.ComputeCLV(makeBet(betOdds), closingOdds)
+		result, _ := valueanalysis.ComputeCLV(makeBet(betOdds), closingOdds)
 		expected := 1.0/closingOdds - 1.0/betOdds
 		diff := result.CLV - expected
 		if diff > 1e-9 || diff < -1e-9 {
 			t.Errorf("CLV = %v; want %v", result.CLV, expected)
 		}
 	})
+}
+
+func TestComputeCLV_ZeroClosingOddsReturnsError(t *testing.T) {
+	// Arrange
+	bet := valueanalysis.ValueBet{EdgeEstimate: valueanalysis.EdgeEstimate{DecimalOdds: 2.0}}
+
+	// Act
+	_, err := valueanalysis.ComputeCLV(bet, 0.0)
+
+	// Assert
+	if err == nil {
+		t.Error("expected error for zero closing odds, got nil")
+	}
+}
+
+func TestComputeCLV_ZeroBetOddsReturnsError(t *testing.T) {
+	// Arrange
+	bet := valueanalysis.ValueBet{EdgeEstimate: valueanalysis.EdgeEstimate{DecimalOdds: 0.0}}
+
+	// Act
+	_, err := valueanalysis.ComputeCLV(bet, 2.0)
+
+	// Assert
+	if err == nil {
+		t.Error("expected error for zero bet odds, got nil")
+	}
 }

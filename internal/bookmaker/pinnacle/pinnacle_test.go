@@ -212,3 +212,34 @@ func TestPinnacleClient_GetOffers_ReturnsLinesAsOffers(t *testing.T) {
 // compile-time interface checks
 var _ bookmaker.BookmakerClient = (*pinnacle.Client)(nil)
 var _ bookmaker.AccountManager = (*pinnacle.AccountManager)(nil)
+
+// TestPinnacleClient_PlaceBet_LargeIntBetIDPreserved verifies that a large integer
+// betId returned by Pinnacle is not truncated by float64 precision loss.
+// A value like 99999999999999999 cannot be represented exactly as float64 — the
+// json.Number type preserves it as the raw string from the response.
+func TestPinnacleClient_PlaceBet_LargeIntBetIDPreserved(t *testing.T) {
+	// Arrange
+	const largeBetID = "99999999999999999"
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /v2/bets/straight", func(w http.ResponseWriter, _ *http.Request) {
+		// Write raw JSON with a large integer — Go's encoding/json would lose precision
+		// if it decoded this into float64.
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ACCEPTED","betId":99999999999999999}`))
+	})
+	srv := newTestServer(t, mux)
+	client := pinnacle.NewClient(pinnacle.Config{BaseURL: srv.URL})
+
+	// Act
+	resp, err := client.PlaceBet(context.Background(), bookmaker.BetRequest{
+		OfferID: "o1", MarketID: "m1", Side: "home", RequestedStake: 10, DecimalOdds: 1.9,
+	})
+
+	// Assert
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.BetID != largeBetID {
+		t.Errorf("BetID = %q, want %q (float64 would truncate this)", resp.BetID, largeBetID)
+	}
+}

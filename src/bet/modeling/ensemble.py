@@ -73,6 +73,13 @@ class EnsembleModel:
         avg_away = sum(e.away_win for e in estimates) / len(estimates)
 
         draw_estimates = [e.draw for e in estimates if e.draw is not None]
+
+        models_with_draw = len(draw_estimates)
+        if 0 < models_with_draw < len(estimates):
+            raise ValueError(
+                "mixing draw-capable and non-draw-capable models in an ensemble is ambiguous"
+            )
+
         avg_draw: float | None = (
             sum(draw_estimates) / len(draw_estimates) if draw_estimates else None
         )

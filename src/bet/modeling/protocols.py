@@ -76,3 +76,34 @@ class FeatureExtractor(Protocol):
             A FeatureSet ready for passing to ``Model.predict``.
         """
         ...
+
+
+@runtime_checkable
+class CalibratableModel(Protocol):
+    """Extension of Model that supports post-hoc isotonic calibration.
+
+    Models implementing this protocol expose ``predict_raw`` (uncalibrated
+    probabilities) and ``fit_calibrator`` (accepts a held-out calibration set)
+    in addition to the standard ``Model`` interface.
+    """
+
+    def predict_raw(self, features: FeatureSet) -> ProbabilityEstimate:
+        """Return uncalibrated win probabilities for one game.
+
+        Args:
+            features: Pre-computed feature set from a FeatureExtractor.
+
+        Returns:
+            A ProbabilityEstimate produced by the underlying model before
+            isotonic calibration is applied.
+        """
+        ...
+
+    def fit_calibrator(self, probs: list[float], outcomes: list[int]) -> None:
+        """Fit the isotonic calibrator on a held-out calibration set.
+
+        Args:
+            probs: Raw model-predicted probabilities for the home side.
+            outcomes: Binary outcomes (1 = home win, 0 = home loss/draw).
+        """
+        ...

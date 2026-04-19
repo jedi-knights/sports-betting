@@ -136,10 +136,10 @@ func main() {
 			logger.Info("market-data service shutting down")
 			grpcSrv.GracefulStop()
 			shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 			if err := httpSrv.Shutdown(shutCtx); err != nil {
 				logger.Error("HTTP server shutdown", "error", err)
 			}
-			cancel()
 			return
 		}
 	}

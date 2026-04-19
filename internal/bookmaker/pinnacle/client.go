@@ -84,7 +84,7 @@ func (c *Client) PlaceBet(ctx context.Context, req bookmaker.BetRequest) (bookma
 	switch resp.Status {
 	case "ACCEPTED", "PENDING_ACCEPTANCE":
 		return bookmaker.BetResponse{
-			BetID:         fmt.Sprintf("%d", int64(resp.BetID)),
+			BetID:         resp.BetID.String(),
 			AcceptedStake: req.RequestedStake,
 			DecimalOdds:   req.DecimalOdds,
 			Filled:        true,

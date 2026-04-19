@@ -15,15 +15,7 @@ from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-from .types import FeatureSet, ProbabilityEstimate, TrainingExample
-
-
-def _outcome_label(home_score: int, away_score: int) -> str:
-    if home_score > away_score:
-        return "home_win"
-    if home_score < away_score:
-        return "away_win"
-    return "draw"
+from .types import FeatureSet, ProbabilityEstimate, TrainingExample, _outcome_label
 
 
 class LogisticRegressionModel:

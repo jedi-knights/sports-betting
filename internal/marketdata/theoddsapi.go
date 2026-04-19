@@ -83,7 +83,7 @@ type oddsAPIMarket struct {
 
 type oddsAPIOutcome struct {
 	Name  string   `json:"name"`
-	Price int      `json:"price"`
+	Price float64  `json:"price"`
 	Point *float64 `json:"point,omitempty"`
 }
 
@@ -263,7 +263,7 @@ func (p *TheOddsAPIProvider) refresh(ctx context.Context, sport Sport, sportKey 
 				for _, outcome := range mkt.Outcomes {
 					side := outcomeNameToSide(outcome.Name, ae.HomeTeam, ae.AwayTeam)
 					lineID := marketID + "_" + bm.Key + "_" + string(side)
-					decimal, err := AmericanOdds(outcome.Price).ToDecimal()
+					decimal, err := AmericanOdds(int(outcome.Price)).ToDecimal()
 					if err != nil {
 						continue
 					}
@@ -277,7 +277,7 @@ func (p *TheOddsAPIProvider) refresh(ctx context.Context, sport Sport, sportKey 
 						BookID:         bm.Key,
 						Side:           side,
 						Label:          outcome.Name,
-						AmericanOdds:   outcome.Price,
+						AmericanOdds:   int(outcome.Price),
 						DecimalOdds:    float64(decimal),
 						RawImpliedProb: float64(rawProb),
 						RecordedAt:     mkt.LastUpdate,

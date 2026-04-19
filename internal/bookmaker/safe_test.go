@@ -2,6 +2,8 @@ package bookmaker_test
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,6 +24,20 @@ func (f *fakeBetClient) GetOffers(_ context.Context, _ string) ([]bookmaker.Line
 func (f *fakeBetClient) PlaceBet(_ context.Context, req bookmaker.BetRequest) (bookmaker.BetResponse, error) {
 	f.reqs = append(f.reqs, req)
 	return f.resp, f.err
+}
+
+// concurrentBetClient is a thread-safe BookmakerClient fake used in concurrent tests.
+// It counts accepted bets so concurrent tests can assert on the count without data races.
+type concurrentBetClient struct {
+	acceptedBets int64
+}
+
+func (c *concurrentBetClient) GetOffers(_ context.Context, _ string) ([]bookmaker.LineOffer, error) {
+	return nil, nil
+}
+func (c *concurrentBetClient) PlaceBet(_ context.Context, _ bookmaker.BetRequest) (bookmaker.BetResponse, error) {
+	atomic.AddInt64(&c.acceptedBets, 1)
+	return bookmaker.BetResponse{BetID: "b1", AcceptedStake: 50, Filled: true}, nil
 }
 
 type fakeAccountManager struct {
@@ -192,6 +208,50 @@ func TestSafeClient_AllowsAfterDedupTTLExpires(t *testing.T) {
 	// Assert: second bet occurs 15s after first; TTL is 10s — should be allowed
 	if resp.Rejected {
 		t.Errorf("expected bet to be allowed after dedup TTL: %s", resp.RejectionReason)
+	}
+}
+
+// TestSafeClient_ConcurrentDedupPreventsRace fires N goroutines simultaneously placing
+// a bet on the same market+side. After the fix, the dedup map is atomically reserved
+// before the inner call, so exactly one goroutine proceeds to the inner client.
+// The race detector will catch any concurrent map read/write on the unpatched code.
+func TestSafeClient_ConcurrentDedupPreventsRace(t *testing.T) {
+	// Arrange
+	const goroutines = 20
+	inner := &concurrentBetClient{}
+	am := &fakeAccountManager{balance: 1000, maxStake: 100}
+	c := bookmaker.NewSafeBookmakerClient(inner, am,
+		bookmaker.WithSafeMaxStakeCap(100),
+		bookmaker.WithSafeBalanceFloor(0),
+		bookmaker.WithSafeDedupTTL(5*time.Minute),
+	)
+
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+
+	// Act: launch all goroutines, hold them at start, then release simultaneously.
+	for i := range goroutines {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			_, _ = c.PlaceBet(context.Background(), bookmaker.BetRequest{
+				OfferID:        "o" + string(rune('0'+i)),
+				MarketID:       "m1",
+				Side:           "home",
+				RequestedStake: 10,
+				DecimalOdds:    1.9,
+			})
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+
+	// Assert: exactly one goroutine should have reached the inner client;
+	// all others must have been blocked by the dedup reservation.
+	accepted := atomic.LoadInt64(&inner.acceptedBets)
+	if accepted != 1 {
+		t.Errorf("concurrent dedup: inner called %d times, want exactly 1", accepted)
 	}
 }
 

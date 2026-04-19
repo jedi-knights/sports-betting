@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/jedi-knights/sports-betting/internal/marketdata"
@@ -11,13 +12,18 @@ import (
 
 // Handler is an http.Handler that serves the market-data REST API.
 type Handler struct {
-	store marketdata.LineStore
-	mux   *http.ServeMux
+	store  marketdata.LineStore
+	mux    *http.ServeMux
+	logger *slog.Logger
 }
 
 // New returns a Handler wired to the given LineStore.
 func New(store marketdata.LineStore) *Handler {
-	h := &Handler{store: store, mux: http.NewServeMux()}
+	h := &Handler{
+		store:  store,
+		mux:    http.NewServeMux(),
+		logger: slog.Default(),
+	}
 	h.mux.HandleFunc("GET /markets", h.handleGetMarkets)
 	h.mux.HandleFunc("GET /markets/{id}/lines", h.handleGetLines)
 	return h
@@ -38,7 +44,9 @@ func (h *Handler) handleGetMarkets(w http.ResponseWriter, r *http.Request) {
 		ids = []string{}
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(ids)
+	if err := json.NewEncoder(w).Encode(ids); err != nil {
+		h.logger.Error("encoding markets response", "error", err)
+	}
 }
 
 // handleGetLines returns all stored lines for the market identified by {id}.
@@ -53,5 +61,7 @@ func (h *Handler) handleGetLines(w http.ResponseWriter, r *http.Request) {
 		lines = []marketdata.Line{}
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(lines)
+	if err := json.NewEncoder(w).Encode(lines); err != nil {
+		h.logger.Error("encoding lines response", "error", err)
+	}
 }

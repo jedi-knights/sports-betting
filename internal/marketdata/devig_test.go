@@ -61,6 +61,32 @@ func TestDevig(t *testing.T) {
 			t.Errorf("CHI = %v, want %v", got[1], wantCHI)
 		}
 	})
+
+	t.Run("all-zero input returns nil", func(t *testing.T) {
+		// Arrange
+		input := []float64{0, 0}
+
+		// Act
+		got := marketdata.Devig(input)
+
+		// Assert
+		if got != nil {
+			t.Errorf("Devig(zeros) = %v, want nil", got)
+		}
+	})
+
+	t.Run("negative input returns nil", func(t *testing.T) {
+		// Arrange
+		input := []float64{-0.5, 0.5}
+
+		// Act
+		got := marketdata.Devig(input)
+
+		// Assert
+		if got != nil {
+			t.Errorf("Devig(negative) = %v, want nil", got)
+		}
+	})
 }
 
 func TestDevigLines(t *testing.T) {

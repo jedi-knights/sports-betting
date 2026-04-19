@@ -58,21 +58,29 @@ func TestGetOffers_AppliesMarginToOdds(t *testing.T) {
 }
 
 func TestGetOffers_MaxStakeFromConfig(t *testing.T) {
+	// Arrange
 	c := newClient(bookmaker.WithMaxStake(250), withFixedNow(fixedNow))
 	c.SetMarket(testMarket, testSide, trueProb)
 
+	// Act
 	offers, _ := c.GetOffers(context.Background(), testMarket)
+
+	// Assert
 	if offers[0].MaxStake != 250 {
 		t.Errorf("maxStake: want 250, got %v", offers[0].MaxStake)
 	}
 }
 
 func TestGetOffers_ExpirySetFromTTL(t *testing.T) {
+	// Arrange
 	ttl := 30 * time.Second
 	c := newClient(bookmaker.WithOfferTTL(ttl), withFixedNow(fixedNow))
 	c.SetMarket(testMarket, testSide, trueProb)
 
+	// Act
 	offers, _ := c.GetOffers(context.Background(), testMarket)
+
+	// Assert
 	want := fixedNow.Add(ttl)
 	if !offers[0].ExpiresAt.Equal(want) {
 		t.Errorf("expiry: want %v, got %v", want, offers[0].ExpiresAt)

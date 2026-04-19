@@ -26,9 +26,9 @@ import (
 // probability from a bookmaker's decimal odds.
 const marginAdjustment = 0.05
 
-// minEdgeThreshold is the minimum estimated true implied probability required
-// to place a paper bet.
-const minEdgeThreshold = 0.5
+// minModelProbThreshold is the minimum vig-adjusted implied probability required
+// to place a paper bet. A value of 0.5 filters out odds longer than ~2.1 decimal.
+const minModelProbThreshold = 0.5
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -61,6 +61,8 @@ func main() {
 		os.Exit(1)
 	}
 	var wg sync.WaitGroup
+	// wg.Wait() ensures the scores goroutine has exited before scoresSub.Close() is called.
+	// The goroutine exits when its Subscribe loop returns, which happens when ctx is cancelled.
 	defer func() {
 		wg.Wait()
 		if err := scoresSub.Close(); err != nil {
@@ -119,10 +121,10 @@ func main() {
 
 	logger.Info("paper-trade service shutting down")
 	shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	if err := server.Shutdown(shutCtx); err != nil {
 		logger.Error("HTTP server shutdown", "error", err)
 	}
-	cancel()
 }
 
 type paperTradeService struct {
@@ -172,7 +174,7 @@ func (s *paperTradeService) evaluateMarket(ctx context.Context, marketID, eventI
 	}
 	for _, offer := range offers {
 		trueImplied := 1.0 / offer.DecimalOdds * (1 + marginAdjustment)
-		if trueImplied < minEdgeThreshold {
+		if trueImplied < minModelProbThreshold {
 			continue
 		}
 		resp, err := s.book.PlaceBet(ctx, bookmaker.BetRequest{

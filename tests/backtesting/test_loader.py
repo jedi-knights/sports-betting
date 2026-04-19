@@ -73,3 +73,22 @@ class TestCSVDataLoader:
             "closing_home_win_odds,closing_away_win_odds,closing_draw_odds\n"
         )
         assert CSVDataLoader().load(str(csv_file)) == []
+
+
+class TestCSVDataLoaderErrorHandling:
+    def test_load_raises_on_malformed_score(self, tmp_path: Path) -> None:
+        # Arrange
+        csv_content = (
+            "event_id,sport,home_team,away_team,game_date,"
+            "home_score,away_score,home_win_odds,away_win_odds,draw_odds,"
+            "closing_home_win_odds,closing_away_win_odds,closing_draw_odds\n"
+            "evt1,nfl,alpha,bravo,2023-09-01T00:00:00+00:00,N/A,17,1.8,2.1,,1.82,2.08,\n"
+        )
+        f = tmp_path / "bad.csv"
+        f.write_text(csv_content)
+
+        # Act / Assert
+        import pytest
+
+        with pytest.raises(ValueError, match="row 1"):
+            CSVDataLoader().load(str(f))

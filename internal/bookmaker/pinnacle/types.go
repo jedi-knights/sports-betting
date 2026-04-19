@@ -5,7 +5,11 @@
 // Credentials must be supplied via Config — never hardcoded.
 package pinnacle
 
-import "net/http"
+import (
+	"encoding/json"
+	"net/http"
+	"time"
+)
 
 // Config holds the credentials and base URL for Pinnacle API access.
 // BaseURL defaults to the production endpoint when empty.
@@ -16,7 +20,7 @@ type Config struct {
 	Username string
 	Password string
 	// HTTPClient allows injecting a custom http.Client (e.g., with timeouts).
-	// Defaults to http.DefaultClient when nil.
+	// Defaults to a client with a 10-second timeout when nil.
 	HTTPClient *http.Client
 }
 
@@ -31,7 +35,7 @@ func (c Config) httpClient() *http.Client {
 	if c.HTTPClient != nil {
 		return c.HTTPClient
 	}
-	return http.DefaultClient
+	return &http.Client{Timeout: 10 * time.Second}
 }
 
 // --- Pinnacle API response types ---
@@ -46,17 +50,20 @@ type maxStakeResponse struct {
 	MaxWinStake  float64 `json:"maxWinStake"`
 }
 
+// placeBetResponse holds the Pinnacle bet placement result.
+// BetID uses json.Number rather than float64 to preserve the exact integer value
+// returned by the API — large Pinnacle bet IDs exceed float64 precision.
 type placeBetResponse struct {
-	Status    string  `json:"status"`
-	BetID     float64 `json:"betId"`
-	ErrorCode string  `json:"errorCode"`
+	Status    string      `json:"status"`
+	BetID     json.Number `json:"betId"`
+	ErrorCode string      `json:"errorCode"`
 }
 
 type fixtureEvent struct {
-	ID    int                      `json:"id"`
-	Home  string                   `json:"home"`
-	Away  string                   `json:"away"`
-	Lines []map[string]interface{} `json:"lines"`
+	ID    int              `json:"id"`
+	Home  string           `json:"home"`
+	Away  string           `json:"away"`
+	Lines []map[string]any `json:"lines"`
 }
 
 type fixtureLeague struct {

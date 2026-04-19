@@ -43,7 +43,8 @@ func (p *KafkaPublisher) PublishGameCompleted(ctx context.Context, event marketd
 	return p.produce(ctx, p.scoresTopic, []byte(event.Result.EventID), event)
 }
 
-// Close flushes and closes the underlying Kafka client.
+// Close flushes pending records and closes the underlying Kafka client.
+// Blocks until all in-flight produce requests complete (franz-go guarantees this).
 func (p *KafkaPublisher) Close() error {
 	p.client.Close()
 	return nil

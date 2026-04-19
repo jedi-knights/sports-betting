@@ -39,6 +39,8 @@ class PoissonModel:
     model_id = "poisson"
 
     def __init__(self, rho: float = -0.13, max_goals: int = 10) -> None:
+        if rho > 0:
+            raise ValueError(f"rho must be <= 0; got {rho}")
         self._rho = rho
         self._max_goals = max_goals
         self._home_baseline = 1.5
@@ -85,6 +87,8 @@ class PoissonModel:
 
         matrix = self._score_matrix(lambda_home, lambda_away)
         total = matrix.sum()
+        if total <= 0:
+            raise ValueError(f"score matrix sum is non-positive ({total}); verify lambda values")
 
         home_win = float(np.sum(np.tril(matrix, -1))) / total
         away_win = float(np.sum(np.triu(matrix, 1))) / total
@@ -123,4 +127,5 @@ class PoissonModel:
             matrix[0, 1] *= 1.0 + lambda_home * self._rho
             matrix[1, 1] *= 1.0 - self._rho
 
+        matrix = np.clip(matrix, 0.0, None)
         return matrix

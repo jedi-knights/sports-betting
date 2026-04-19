@@ -5,14 +5,21 @@ import "time"
 // Devig applies proportional margin removal to a set of raw implied probabilities.
 // The inputs are expected to sum to greater than 1.0 (the overround / vig).
 // Each output probability is rescaled so the outputs sum to exactly 1.0.
-// Returns nil for a nil or empty input.
+// Returns nil for a nil or empty input, for inputs containing negative values,
+// or when the sum of all inputs is zero or negative (division by zero guard).
 func Devig(rawProbs []float64) []float64 {
 	if len(rawProbs) == 0 {
 		return nil
 	}
 	var sum float64
 	for _, p := range rawProbs {
+		if p < 0 {
+			return nil // negative probability is not valid input
+		}
 		sum += p
+	}
+	if sum <= 0 {
+		return nil
 	}
 	result := make([]float64, len(rawProbs))
 	for i, p := range rawProbs {
@@ -48,6 +55,9 @@ func DevigLines(lines []Line) []Line {
 			rawProbs[j] = result[idx].RawImpliedProb
 		}
 		devigged := Devig(rawProbs)
+		if devigged == nil {
+			continue
+		}
 		for j, idx := range indices {
 			result[idx].ImpliedProb = devigged[j]
 		}
