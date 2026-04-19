@@ -20,18 +20,32 @@ from datetime import UTC, datetime
 from ..backtesting.types import HistoricalGame
 from .athleteone import AthleteOneClient
 
-_DEFAULT_SEASON_IDS = [69]  # 69 = 2025-26
+# 2025-26 season IDs for all four ECNL/ECRL leagues
+_DEFAULT_SEASON_IDS = [69, 70, 71, 72]
+
+# Maps AthleteOne season ID → sport slug used in HistoricalGame.sport.
+# Season IDs are sequential and league-specific: Girls(69), Boys(70),
+# RL Girls(71), RL Boys(72) for the 2025-26 season.
+_SEASON_SPORT_SLUGS: dict[int, str] = {
+    69: "ecnl_girls",
+    70: "ecnl_boys",
+    71: "ecrl_girls",
+    72: "ecrl_boys",
+}
 
 
 class ECNLDataFetcher:
-    """Fetch completed ECNL match results from the AthleteOne API.
+    """Fetch completed ECNL and ECRL match results from the AthleteOne API.
+
+    Covers all four leagues sharing the AthleteOne platform at theecnl.com:
+    ECNL Girls (season 69), ECNL Boys (70), ECRL Girls (71), ECRL Boys (72).
 
     Args:
         client: AthleteOneClient instance.  Defaults to a live client.  Pass
             a mock in tests.
         season_ids: List of AthleteOne season IDs to query.  Defaults to
-            ``[69]`` (2025-26).  Season IDs are sequential integers; 69 is the
-            most recent confirmed season.
+            all four 2025-26 league seasons.  Pass a subset to restrict to
+            specific leagues.
     """
 
     def __init__(
@@ -56,6 +70,7 @@ class ECNLDataFetcher:
         games: list[HistoricalGame] = []
 
         for season_id in self._season_ids:
+            sport_slug = _SEASON_SPORT_SLUGS.get(season_id, "ecnl")
             for event_id in self._get_event_ids(season_id):
                 for flight_id in self._get_flight_ids(event_id):
                     for match in self._client.get_schedules_by_flight(event_id, flight_id):
@@ -65,7 +80,7 @@ class ECNLDataFetcher:
                         if event_id_str in seen:
                             continue
                         seen.add(event_id_str)
-                        games.append(self._to_game(match, event_id_str))
+                        games.append(self._to_game(match, event_id_str, sport_slug))
 
         return sorted(games, key=lambda g: g.game_date)
 
@@ -79,11 +94,11 @@ class ECNLDataFetcher:
             self._flight_ids_cache[event_id] = self._client.get_flight_ids_for_event(event_id)
         return self._flight_ids_cache[event_id]
 
-    def _to_game(self, match: dict, event_id: str) -> HistoricalGame:
+    def _to_game(self, match: dict, event_id: str, sport_slug: str) -> HistoricalGame:
         game_date = datetime.strptime(match["gameDate"], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=UTC)
         return HistoricalGame(
             event_id=event_id,
-            sport="ecnl",
+            sport=sport_slug,
             home_team=match["homeTeam"],
             away_team=match["awayTeam"],
             game_date=game_date,

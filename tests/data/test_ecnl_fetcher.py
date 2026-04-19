@@ -71,8 +71,8 @@ class TestECNLDataFetcherFetch:
         # Assert
         assert all(isinstance(g, HistoricalGame) for g in result)
 
-    def test_games_have_ecnl_sport_slug(self) -> None:
-        # Arrange
+    def test_games_have_ecnl_girls_sport_slug(self) -> None:
+        # Arrange — season 69 is ECNL Girls
         client = _mock_client({69: [3925]}, {3925: [32626]}, [_COMPLETED_MATCH])
         fetcher = ECNLDataFetcher(client=client, season_ids=[69])
 
@@ -80,7 +80,7 @@ class TestECNLDataFetcherFetch:
         result = fetcher.fetch()
 
         # Assert
-        assert all(g.sport == "ecnl" for g in result)
+        assert all(g.sport == "ecnl_girls" for g in result)
 
     def test_team_names_from_home_away_fields(self) -> None:
         # Arrange — AthleteOne embeds full team display names in homeTeam/awayTeam
@@ -239,6 +239,41 @@ class TestECNLDataFetcherCache:
         assert client.get_flight_ids_for_event.call_count == 1
 
 
+class TestECNLDataFetcherSportSlugs:
+    def test_ecnl_boys_sport_slug(self) -> None:
+        # Arrange — season 70 is ECNL Boys
+        client = _mock_client({70: [3930]}, {3930: [32700]}, [_COMPLETED_MATCH])
+        fetcher = ECNLDataFetcher(client=client, season_ids=[70])
+
+        # Act
+        result = fetcher.fetch()
+
+        # Assert
+        assert all(g.sport == "ecnl_boys" for g in result)
+
+    def test_ecrl_girls_sport_slug(self) -> None:
+        # Arrange — season 71 is ECRL Girls
+        client = _mock_client({71: [3940]}, {3940: [32800]}, [_COMPLETED_MATCH])
+        fetcher = ECNLDataFetcher(client=client, season_ids=[71])
+
+        # Act
+        result = fetcher.fetch()
+
+        # Assert
+        assert all(g.sport == "ecrl_girls" for g in result)
+
+    def test_ecrl_boys_sport_slug(self) -> None:
+        # Arrange — season 72 is ECRL Boys
+        client = _mock_client({72: [3950]}, {3950: [32900]}, [_COMPLETED_MATCH])
+        fetcher = ECNLDataFetcher(client=client, season_ids=[72])
+
+        # Act
+        result = fetcher.fetch()
+
+        # Assert
+        assert all(g.sport == "ecrl_boys" for g in result)
+
+
 class TestECNLDataFetcherSeasons:
     def test_queries_all_season_ids(self) -> None:
         # Arrange
@@ -265,3 +300,10 @@ class TestECNLDataFetcherSeasons:
 
         # Assert
         assert result == []
+
+    def test_default_season_ids_cover_all_four_leagues(self) -> None:
+        # Arrange — default should include Girls(69), Boys(70), RL Girls(71), RL Boys(72)
+        from bet.data.ecnl import _DEFAULT_SEASON_IDS
+
+        # Assert
+        assert set(_DEFAULT_SEASON_IDS) == {69, 70, 71, 72}
