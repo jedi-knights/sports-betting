@@ -85,7 +85,8 @@ class ASALeagueDataFetcher:
     def _to_game(self, raw: dict[str, Any], team_names: dict[str, str]) -> HistoricalGame:
         home_id = raw["home_team_id"]
         away_id = raw["away_team_id"]
-        game_date = datetime.strptime(raw["date_time_utc"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC)
+        date_str = raw["date_time_utc"].removesuffix(" UTC")
+        game_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC)
         return HistoricalGame(
             event_id=raw["game_id"],
             sport=self.sport_slug,

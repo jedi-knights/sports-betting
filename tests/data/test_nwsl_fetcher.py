@@ -173,3 +173,29 @@ class TestNWSLDataFetcherFetch:
 
         # Assert
         assert result[0].event_id == "nwsl_2024_001"
+
+    def test_game_date_with_utc_suffix_parses_correctly(self) -> None:
+        # Arrange — ASA API sometimes returns "YYYY-MM-DD HH:MM:SS UTC" with a trailing suffix
+        games = [
+            {
+                "game_id": "nwsl_2025_001",
+                "date_time_utc": "2025-04-12 19:00:00 UTC",
+                "home_score": 1,
+                "away_score": 0,
+                "home_team_id": "NC",
+                "away_team_id": "POR",
+                "season_name": "2025",
+            }
+        ]
+        fetcher = NWSLDataFetcher(client=_mock_client(games, _SAMPLE_TEAMS))
+
+        # Act
+        result = fetcher.fetch()
+
+        # Assert
+        from datetime import UTC
+
+        assert result[0].game_date.year == 2025
+        assert result[0].game_date.month == 4
+        assert result[0].game_date.day == 12
+        assert result[0].game_date.tzinfo == UTC

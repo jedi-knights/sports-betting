@@ -88,11 +88,55 @@ docker compose up -d
 
 ## Usage
 
-The `bet` CLI is the primary interface for running backtests and paper trading. Commands are added as each phase is implemented.
+The `bet` CLI is the primary interface for fetching data, running backtests, and paper trading.
 
 ```bash
 # Show available commands
 uv run bet --help
+```
+
+### `bet fetch` — Download league data to CSV
+
+Fetches completed match results from free public sources and writes them to a CSV file. The output format is compatible with `bet backtest --data`.
+
+```bash
+uv run bet fetch --league <league> [--output <path>] [--history]
+```
+
+| Option | Required | Default | Description |
+|--------|----------|---------|-------------|
+| `--league` | Yes | — | League to fetch (see table below) |
+| `--output` | No | `<league>.csv` | Output file path |
+| `--history` | No | off | Fetch all historical seasons instead of the current season only |
+
+**Valid `--league` values:**
+
+| Value | League | Current Season | History coverage |
+|-------|--------|---------------|-----------------|
+| `ecnl-girls` | ECNL Girls | 2025-26 | 2015-16 → present |
+| `ecnl-boys` | ECNL Boys | 2025-26 | 2017-18 → present |
+| `ecrl-girls` | ECRL Girls | 2025-26 | 2021-22 → present |
+| `ecrl-boys` | ECRL Boys | 2025-26 | 2021-22 → present |
+| `ecnl` | All four ECNL/ECRL leagues | 2025-26 | All above combined |
+| `nwsl` | National Women's Soccer League | Current | — |
+| `mls` | Major League Soccer | Current | 2013 → present (with `--history`) |
+| `wpsl` | Women's Premier Soccer League | Current | — |
+| `usl-super-league` | USL Super League | Current | — |
+
+**Examples:**
+
+```bash
+# Current ECNL Girls season → ecnl-girls.csv
+uv run bet fetch --league ecnl-girls
+
+# Full ECNL Girls history → data/ecnl_girls_full.csv
+uv run bet fetch --league ecnl-girls --history --output data/ecnl_girls_full.csv
+
+# All four ECNL/ECRL leagues, current season
+uv run bet fetch --league ecnl --output data/ecnl.csv
+
+# MLS full history
+uv run bet fetch --league mls --history --output data/mls.csv
 ```
 
 ## Configuration
