@@ -97,7 +97,7 @@ class ECNLDataFetcher:
             for event_id in self._get_event_ids(season_id):
                 for flight_id in self._get_flight_ids(event_id):
                     for match in self._client.get_schedules_by_flight(event_id, flight_id):
-                        if match.get("hometeamscore") is None:
+                        if match.get("hometeamscore") is None or match.get("gameDate") is None:
                             continue
                         event_id_str = f"ecnl_{match['matchID']}"
                         if event_id_str in seen:

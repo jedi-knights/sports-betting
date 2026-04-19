@@ -129,6 +129,25 @@ class TestECNLDataFetcherFetch:
         # Assert
         assert result == []
 
+    def test_match_with_null_game_date_excluded(self) -> None:
+        # Arrange — some historical matches have gameDate=None; skip rather than crash
+        null_date_match = {
+            "matchID": 906499,
+            "gameDate": None,
+            "homeTeam": "NCFC Youth ECNL G13",
+            "awayTeam": "Charlotte SA ECNL G13",
+            "hometeamscore": 2,
+            "awayteamscore": 1,
+        }
+        client = _mock_client({69: [3925]}, {3925: [32626]}, [null_date_match])
+        fetcher = ECNLDataFetcher(client=client, season_ids=[69])
+
+        # Act
+        result = fetcher.fetch()
+
+        # Assert
+        assert result == []
+
     def test_odds_are_none(self) -> None:
         # Arrange
         client = _mock_client({69: [3925]}, {3925: [32626]}, [_COMPLETED_MATCH])
