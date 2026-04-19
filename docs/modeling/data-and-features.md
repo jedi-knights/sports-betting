@@ -48,6 +48,17 @@ Use this data carefully — incorporating it as a training feature risks introdu
 - **Rest and travel**: days since last game, distance traveled, time zone changes — all have empirical support as predictive features
 - **Referee assignments**: in soccer particularly, individual referee characteristics (cards per game, home-win rates) are predictive
 
+### League Coverage Gaps
+
+Not every league has usable public data. Before building a scraper or ingestion pipeline for a new league, check whether the sample size and data accessibility actually support a reliable model.
+
+**NSL (National Soccer League, Canada) — deferred**
+
+- The NSL launched in 2025 (inaugural season, ~60 games); a 2026 season is scheduled but the league is still in its first year of existence.
+- No public API exists. The official site (nsl.ca) is built on Craft CMS with Sprig; scores are only accessible via a fragile 3-step scraper that requires a server-signed hash to be fetched per game page — making any scraper brittle and maintenance-heavy.
+- Neither [American Soccer Analysis](https://www.americansocceranalysis.com/), football-data.org (free tier), nor any other known free dataset covers this league.
+- Decision: hold off on building a scraper. A [Poisson model](models/poisson.md) requires 2–3 seasons of results before attack/defense strength estimates stabilize; the current sample is too small to produce reliable predictions. Revisit when the 2026 or 2027 season data is available and a free data source has emerged.
+
 ---
 
 ## Feature Categories
