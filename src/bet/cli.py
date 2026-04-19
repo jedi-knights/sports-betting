@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import dataclasses
 import json
 import sys
 from collections.abc import Callable
@@ -13,9 +15,22 @@ import click
 
 from .backtesting.loader import CSVDataLoader
 from .backtesting.pipeline import BacktestPipeline
+from .backtesting.types import HistoricalGame
 from .calibration.isotonic import IsotonicCalibrator
 from .calibration.metrics import brier_score, expected_calibration_error, log_loss
 from .calibration.model import CalibratedModel
+from .data.ecnl import (
+    ALL_ECNL_SEASON_IDS,
+    ECNL_BOYS_SEASON_IDS,
+    ECNL_GIRLS_SEASON_IDS,
+    ECRL_BOYS_SEASON_IDS,
+    ECRL_GIRLS_SEASON_IDS,
+    ECNLDataFetcher,
+)
+from .data.mls import MLSDataFetcher
+from .data.nwsl import NWSLDataFetcher
+from .data.usl_super_league import USLSuperLeagueDataFetcher
+from .data.wpsl import WPSLDataFetcher
 from .features.ecnl import ECNLFeatureExtractor
 from .features.ecrl import ECRLFeatureExtractor
 from .features.epl import EPLFeatureExtractor
@@ -339,6 +354,105 @@ def paper_trade(sport: str, host: str) -> None:
     click.echo(f"  Profit      : {report.get('total_profit', 0):.2f}")
     click.echo(f"  ROI         : {report.get('roi', 0):.2%}")
     click.echo(f"\n  Open bets: {sum(1 for b in bets if b.get('Status') == 'open')}")
+
+
+_FETCH_LEAGUE_CHOICES = [
+    "nwsl",
+    "mls",
+    "usl-super-league",
+    "wpsl",
+    "ecnl-girls",
+    "ecnl-boys",
+    "ecrl-girls",
+    "ecrl-boys",
+    "ecnl",
+]
+
+_MLS_SEASONS = [str(y) for y in range(2013, 2025)]
+
+_CSV_FIELDNAMES = [f.name for f in dataclasses.fields(HistoricalGame)]
+
+
+def _build_fetcher(league: str, history: bool):
+    if league == "nwsl":
+        return NWSLDataFetcher()
+    if league == "mls":
+        return MLSDataFetcher(seasons=_MLS_SEASONS if history else None)
+    if league == "usl-super-league":
+        return USLSuperLeagueDataFetcher()
+    if league == "wpsl":
+        return WPSLDataFetcher()
+    if league == "ecnl-girls":
+        return ECNLDataFetcher(season_ids=ECNL_GIRLS_SEASON_IDS if history else [69])
+    if league == "ecnl-boys":
+        return ECNLDataFetcher(season_ids=ECNL_BOYS_SEASON_IDS if history else [70])
+    if league == "ecrl-girls":
+        return ECNLDataFetcher(season_ids=ECRL_GIRLS_SEASON_IDS if history else [71])
+    if league == "ecrl-boys":
+        return ECNLDataFetcher(season_ids=ECRL_BOYS_SEASON_IDS if history else [72])
+    # ecnl — all four leagues
+    return ECNLDataFetcher(season_ids=ALL_ECNL_SEASON_IDS if history else None)
+
+
+def _game_to_csv_row(game: HistoricalGame) -> dict:
+    def _opt(v):
+        return "" if v is None else v
+
+    return {
+        "event_id": game.event_id,
+        "sport": game.sport,
+        "home_team": game.home_team,
+        "away_team": game.away_team,
+        "game_date": game.game_date.isoformat(),
+        "home_score": game.home_score,
+        "away_score": game.away_score,
+        "home_win_odds": _opt(game.home_win_odds),
+        "away_win_odds": _opt(game.away_win_odds),
+        "draw_odds": _opt(game.draw_odds),
+        "closing_home_win_odds": _opt(game.closing_home_win_odds),
+        "closing_away_win_odds": _opt(game.closing_away_win_odds),
+        "closing_draw_odds": _opt(game.closing_draw_odds),
+        "temperature": _opt(game.temperature),
+        "wind_mph": _opt(game.wind_mph),
+        "precipitation": game.precipitation,
+    }
+
+
+@main.command(name="fetch")
+@click.option(
+    "--league",
+    required=True,
+    type=click.Choice(_FETCH_LEAGUE_CHOICES),
+    help="League to fetch data for.",
+)
+@click.option(
+    "--output",
+    type=click.Path(),
+    default=None,
+    help="Output CSV path. Defaults to <league>.csv in the current directory.",
+)
+@click.option(
+    "--history",
+    is_flag=True,
+    default=False,
+    help="Fetch all available historical seasons. For ECNL back to 2015-16; for MLS back to 2013.",
+)
+def fetch_cmd(league: str, output: str | None, history: bool) -> None:
+    """Fetch historical game data from a free source and write to CSV."""
+    out_path = Path(output) if output else Path(f"{league}.csv")
+
+    click.echo(f"Fetching {league} data{'  (full history)' if history else ''}...")
+    fetcher = _build_fetcher(league, history)
+    games = fetcher.fetch()
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=_CSV_FIELDNAMES)
+        writer.writeheader()
+        for game in games:
+            writer.writerow(_game_to_csv_row(game))
+
+    click.echo(f"Wrote {len(games)} games to {out_path}")
 
 
 if __name__ == "__main__":
