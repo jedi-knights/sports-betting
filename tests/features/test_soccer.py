@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from bet.features.soccer import SoccerFeatureExtractor
+from bet.features.epl import EPLFeatureExtractor as SoccerFeatureExtractor
 from bet.modeling.types import ActualOutcome, FeatureSet, TrainingExample
 
 
@@ -23,7 +23,7 @@ def _make_example(
     return TrainingExample(
         feature_set=FeatureSet(
             event_id=f"game-{day}",
-            sport="soccer",
+            sport="epl",
             home_team=home,
             away_team=away,
             as_of=dt,
@@ -64,7 +64,7 @@ class TestSoccerFeatureExtractorBasics:
         ext = SoccerFeatureExtractor()
         ext.fit([])
         result = ext.extract("g", "a", "b", _dt(10))
-        assert result.sport == "soccer"
+        assert result.sport == "epl"
 
     def test_all_features_positive(self) -> None:
         ext = SoccerFeatureExtractor()

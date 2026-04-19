@@ -6,6 +6,17 @@ import pytest
 
 from bet.cli import _build_model_and_extractor
 
+_SOCCER_LEAGUES = [
+    "epl",
+    "mls",
+    "nwsl",
+    "usl_super_league",
+    "usl_w_league",
+    "wpsl",
+    "ecnl",
+    "ecrl",
+]
+
 
 class TestBuildModelAndExtractor:
     def test_poisson_model_raises_for_non_soccer_sport(self) -> None:
@@ -13,11 +24,12 @@ class TestBuildModelAndExtractor:
         with pytest.raises(ValueError, match="poisson"):
             _build_model_and_extractor("nfl", "poisson", 20.0, True)
 
-    def test_poisson_model_valid_for_soccer(self) -> None:
+    @pytest.mark.parametrize("sport", _SOCCER_LEAGUES)
+    def test_poisson_model_valid_for_all_soccer_leagues(self, sport: str) -> None:
         # Arrange / Act
         from bet.modeling.poisson import PoissonModel
 
-        model, extractor = _build_model_and_extractor("soccer", "poisson", 20.0, True)
+        model, extractor = _build_model_and_extractor(sport, "poisson", 20.0, True)
 
         # Assert
         assert isinstance(model, PoissonModel)

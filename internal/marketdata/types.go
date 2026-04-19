@@ -22,11 +22,22 @@ type Book struct {
 type Sport string
 
 const (
-	SportNFL    Sport = "nfl"
-	SportNBA    Sport = "nba"
-	SportMLB    Sport = "mlb"
-	SportNHL    Sport = "nhl"
-	SportSoccer Sport = "soccer"
+	// North American team sports
+	SportNFL Sport = "nfl"
+	SportNBA Sport = "nba"
+	SportMLB Sport = "mlb"
+	SportNHL Sport = "nhl"
+
+	// Soccer — each league modelled independently; Poisson strength ratings
+	// are not transferable across leagues.
+	SportEPL            Sport = "epl"            // English Premier League (live odds via The Odds API)
+	SportMLS            Sport = "mls"            // Major League Soccer (live odds via The Odds API)
+	SportNWSL           Sport = "nwsl"           // National Women's Soccer League (live odds via The Odds API)
+	SportUSLSuperLeague Sport = "usl_super_league" // USL Super League (live odds via The Odds API)
+	SportUSLWLeague     Sport = "usl_w_league"   // USL W League (live odds via The Odds API)
+	SportWPSL           Sport = "wpsl"           // Women's Premier Soccer League (model-only; no bookmaker market)
+	SportECNL           Sport = "ecnl"           // Elite Clubs National League — youth (model-only)
+	SportECRL           Sport = "ecrl"           // Elite Clubs Regional League — youth (model-only)
 )
 
 // Event represents a scheduled sporting contest.

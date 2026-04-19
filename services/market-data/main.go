@@ -29,11 +29,18 @@ import (
 // validSports is the set of sport identifiers accepted by this service.
 // Values outside this set are logged as warnings at startup.
 var validSports = map[marketdata.Sport]bool{
-	marketdata.SportNFL:    true,
-	marketdata.SportNBA:    true,
-	marketdata.SportMLB:    true,
-	marketdata.SportNHL:    true,
-	marketdata.SportSoccer: true,
+	marketdata.SportNFL:            true,
+	marketdata.SportNBA:            true,
+	marketdata.SportMLB:            true,
+	marketdata.SportNHL:            true,
+	marketdata.SportEPL:            true,
+	marketdata.SportMLS:            true,
+	marketdata.SportNWSL:           true,
+	marketdata.SportUSLSuperLeague: true,
+	marketdata.SportUSLWLeague:     true,
+	marketdata.SportWPSL:           true,
+	marketdata.SportECNL:           true,
+	marketdata.SportECRL:           true,
 }
 
 func main() {

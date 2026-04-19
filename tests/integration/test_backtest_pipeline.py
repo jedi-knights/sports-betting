@@ -16,11 +16,11 @@ from pathlib import Path
 
 from bet.backtesting.loader import CSVDataLoader
 from bet.backtesting.pipeline import BacktestPipeline
+from bet.features.epl import EPLFeatureExtractor as SoccerFeatureExtractor
 from bet.features.mlb import MLBFeatureExtractor
 from bet.features.nba import NBAFeatureExtractor
 from bet.features.nfl import NFLFeatureExtractor
 from bet.features.nhl import NHLFeatureExtractor
-from bet.features.soccer import SoccerFeatureExtractor
 from bet.modeling.elo import EloModel
 from bet.modeling.ensemble import EnsembleModel
 from bet.modeling.gradient_boosting import GradientBoostingModel

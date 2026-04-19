@@ -1,14 +1,14 @@
-"""Soccer feature extractor — computes attack/defense strength features.
+"""Base feature extractor for all soccer leagues.
 
-Strength is estimated as the ratio of a team's average goals scored (or
-conceded) to the league average, using only games completed before ``as_of``.
-Values above 1.0 indicate above-average attack or defense weakness; values
-below 1.0 indicate below-average.
+Each soccer league has its own extractor subclass that inherits this
+algorithm unchanged but stamps the correct league slug into the FeatureSet.
+The attack/defense strength model is described in the module docstring for
+the individual league modules.
 
-These features feed directly into ``PoissonModel.predict`` as λ components:
-
-    λ_home = home_baseline × home_attack × away_defense
-    λ_away = away_baseline × away_attack × home_defense
+Attack strength = goals scored per game / league average.
+Defense weakness = goals conceded per game / league average.
+Values > 1.0 are above-average; values < 1.0 are below-average.
+Teams with no history default to 1.0 (league-average).
 """
 
 from __future__ import annotations
@@ -20,16 +20,15 @@ from ..modeling.types import FeatureSet, TrainingExample
 _DEFAULT_STRENGTH = 1.0
 
 
-class SoccerFeatureExtractor:
-    """Computes normalized attack and defense strength features for soccer.
+class SoccerLeagueFeatureExtractor:
+    """Shared Poisson attack/defense extractor for all soccer leagues.
 
-    Attack strength is goals scored per game divided by the league average.
-    Defense weakness is goals conceded per game divided by the league average.
-    Teams with no historical data default to 1.0 (exactly average).
-
-    Goals are tracked separately for home and away games to avoid mixing
-    the two contexts; all games are combined for the normalization denominator.
+    Subclasses set ``league`` to the slug that appears in FeatureSet.sport.
+    The extraction algorithm is identical across leagues; strength ratings
+    built from one league's data must never be mixed with another's.
     """
+
+    league: str = "soccer"
 
     def __init__(self) -> None:
         self._examples: list[TrainingExample] = []
@@ -93,7 +92,7 @@ class SoccerFeatureExtractor:
 
         return FeatureSet(
             event_id=event_id,
-            sport="soccer",
+            sport=self.league,
             home_team=home_team,
             away_team=away_team,
             as_of=as_of,
@@ -104,3 +103,8 @@ class SoccerFeatureExtractor:
                 "away_defense": _strength(away_team, goals_conceded),
             },
         )
+
+
+# Keep the old name as an alias so any external code that imported
+# SoccerFeatureExtractor continues to work until fully migrated.
+SoccerFeatureExtractor = SoccerLeagueFeatureExtractor

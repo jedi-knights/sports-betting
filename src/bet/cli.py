@@ -16,11 +16,18 @@ from .backtesting.pipeline import BacktestPipeline
 from .calibration.isotonic import IsotonicCalibrator
 from .calibration.metrics import brier_score, expected_calibration_error, log_loss
 from .calibration.model import CalibratedModel
+from .features.ecnl import ECNLFeatureExtractor
+from .features.ecrl import ECRLFeatureExtractor
+from .features.epl import EPLFeatureExtractor
 from .features.mlb import MLBFeatureExtractor
+from .features.mls import MLSFeatureExtractor
 from .features.nba import NBAFeatureExtractor
 from .features.nfl import NFLFeatureExtractor
 from .features.nhl import NHLFeatureExtractor
-from .features.soccer import SoccerFeatureExtractor
+from .features.nwsl import NWSLFeatureExtractor
+from .features.usl_super_league import USLSuperLeagueFeatureExtractor
+from .features.usl_w_league import USLWLeagueFeatureExtractor
+from .features.wpsl import WPSLFeatureExtractor
 from .modeling.elo import EloModel
 from .modeling.ensemble import EnsembleModel
 from .modeling.gradient_boosting import GradientBoostingModel
@@ -32,12 +39,26 @@ from .sizing.kelly import KellySizer
 from .tracking.metrics import compute_performance_report
 from .value.detector import MinimumEdgeDetector
 
+# Leagues that use the Poisson model and soccer-specific feature extractors.
+_SOCCER_LEAGUES: frozenset[str] = frozenset(
+    ["epl", "mls", "nwsl", "usl_super_league", "usl_w_league", "wpsl", "ecnl", "ecrl"]
+)
+
+_SPORT_CHOICES = ["nfl", "nba", "mlb", "nhl", *sorted(_SOCCER_LEAGUES)]
+
 _EXTRACTOR_FACTORIES: dict[str, Callable[[float, bool], FeatureExtractor]] = {
     "nfl": lambda k, mov: NFLFeatureExtractor(k_factor=k, use_mov=mov),
     "nba": lambda k, mov: NBAFeatureExtractor(k_factor=k, use_mov=mov),
     "mlb": lambda k, mov: MLBFeatureExtractor(k_factor=k, use_mov=mov),
     "nhl": lambda k, mov: NHLFeatureExtractor(k_factor=k, use_mov=mov),
-    "soccer": lambda k, mov: SoccerFeatureExtractor(),
+    "epl": lambda k, mov: EPLFeatureExtractor(),
+    "mls": lambda k, mov: MLSFeatureExtractor(),
+    "nwsl": lambda k, mov: NWSLFeatureExtractor(),
+    "usl_super_league": lambda k, mov: USLSuperLeagueFeatureExtractor(),
+    "usl_w_league": lambda k, mov: USLWLeagueFeatureExtractor(),
+    "wpsl": lambda k, mov: WPSLFeatureExtractor(),
+    "ecnl": lambda k, mov: ECNLFeatureExtractor(),
+    "ecrl": lambda k, mov: ECRLFeatureExtractor(),
 }
 
 
@@ -56,7 +77,7 @@ def _build_model_and_extractor(
 ) -> tuple[Model, FeatureExtractor]:
     extractor = _EXTRACTOR_FACTORIES[sport](k_factor, use_mov)
 
-    if sport == "soccer" and model_name == "poisson":
+    if sport in _SOCCER_LEAGUES and model_name == "poisson":
         return PoissonModel(), extractor
 
     if model_name == "elo":
@@ -88,7 +109,7 @@ def main() -> None:
 @click.option(
     "--sport",
     required=True,
-    type=click.Choice(["nfl", "nba", "mlb", "nhl", "soccer"]),
+    type=click.Choice(_SPORT_CHOICES),
 )
 @click.option("--data", required=True, type=click.Path(exists=True))
 @click.option(
@@ -200,7 +221,7 @@ def backtest(
 @click.option(
     "--sport",
     required=True,
-    type=click.Choice(["nfl", "nba", "mlb", "nhl", "soccer"]),
+    type=click.Choice(_SPORT_CHOICES),
 )
 @click.option("--data", required=True, type=click.Path(exists=True))
 @click.option(
@@ -277,7 +298,7 @@ def calibrate(
 @click.option(
     "--sport",
     required=True,
-    type=click.Choice(["nfl", "nba", "mlb", "nhl", "soccer"]),
+    type=click.Choice(_SPORT_CHOICES),
 )
 @click.option(
     "--host",

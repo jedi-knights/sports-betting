@@ -353,6 +353,54 @@ func TestTheOddsAPIProvider(t *testing.T) {
 	})
 }
 
+// TestSoccerLeagues_OddsAPISupport verifies that leagues with live odds feeds are
+// recognised by TheOddsAPIProvider and that odds-only leagues (no bookmaker market)
+// return an unsupported-sport error rather than silently fetching nothing.
+func TestSoccerLeagues_OddsAPISupport(t *testing.T) {
+	ctx := context.Background()
+	srv := newOddsAPIServer(t)
+	t.Cleanup(srv.Close)
+	p := marketdata.NewTheOddsAPIProvider("test-key", marketdata.WithBaseURL(srv.URL))
+
+	supported := []marketdata.Sport{
+		marketdata.SportEPL,
+		marketdata.SportMLS,
+		marketdata.SportNWSL,
+		marketdata.SportUSLSuperLeague,
+		marketdata.SportUSLWLeague,
+	}
+	for _, sport := range supported {
+		sport := sport
+		t.Run(string(sport)+" is supported by odds API", func(t *testing.T) {
+			// Arrange / Act
+			_, err := p.Events(ctx, sport, "2024")
+
+			// Assert
+			if err != nil {
+				t.Errorf("Events(%q) returned unexpected error: %v", sport, err)
+			}
+		})
+	}
+
+	oddsUnsupported := []marketdata.Sport{
+		marketdata.SportWPSL,
+		marketdata.SportECNL,
+		marketdata.SportECRL,
+	}
+	for _, sport := range oddsUnsupported {
+		sport := sport
+		t.Run(string(sport)+" is not on odds API", func(t *testing.T) {
+			// Arrange / Act
+			_, err := p.Events(ctx, sport, "2024")
+
+			// Assert
+			if err == nil {
+				t.Errorf("Events(%q) expected unsupported-sport error, got nil", sport)
+			}
+		})
+	}
+}
+
 func TestTheOddsAPIProvider_Scores(t *testing.T) {
 	ctx := context.Background()
 

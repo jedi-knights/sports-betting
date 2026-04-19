@@ -41,14 +41,19 @@ var knownBookmakers = map[string]Book{
 }
 
 // sportKeys maps our internal Sport type to The Odds API v4 sport key.
-// Note: SportSoccer maps to the English Premier League only.
-// Add additional soccer league keys and extend this map to support other leagues.
+// Only leagues with a bookmaker market are listed here; model-only leagues
+// (SportWPSL, SportECNL, SportECRL) are intentionally absent and will return
+// an "unsupported sport" error from TheOddsAPIProvider.
 var sportKeys = map[Sport]string{
-	SportNFL:    "americanfootball_nfl",
-	SportNBA:    "basketball_nba",
-	SportMLB:    "baseball_mlb",
-	SportNHL:    "icehockey_nhl",
-	SportSoccer: "soccer_epl",
+	SportNFL:            "americanfootball_nfl",
+	SportNBA:            "basketball_nba",
+	SportMLB:            "baseball_mlb",
+	SportNHL:            "icehockey_nhl",
+	SportEPL:            "soccer_epl",
+	SportMLS:            "soccer_usa_mls",
+	SportNWSL:           "soccer_usa_nwsl",
+	SportUSLSuperLeague: "soccer_usa_usl_super_league",
+	SportUSLWLeague:     "soccer_usa_usl_w_league",
 }
 
 // apiMarketTypes maps The Odds API market keys to our internal MarketType.
