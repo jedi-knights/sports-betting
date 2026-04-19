@@ -307,3 +307,90 @@ class TestECNLDataFetcherSeasons:
 
         # Assert
         assert set(_DEFAULT_SEASON_IDS) == {69, 70, 71, 72}
+
+
+class TestECNLSeasonConstants:
+    def test_ecnl_girls_season_ids_exported(self) -> None:
+        from bet.data.ecnl import ECNL_GIRLS_SEASON_IDS
+
+        # Spot-check known seasons: 2015-16(5), 2022-23(41), 2025-26(69)
+        assert 5 in ECNL_GIRLS_SEASON_IDS
+        assert 41 in ECNL_GIRLS_SEASON_IDS
+        assert 69 in ECNL_GIRLS_SEASON_IDS
+
+    def test_ecnl_boys_season_ids_exported(self) -> None:
+        from bet.data.ecnl import ECNL_BOYS_SEASON_IDS
+
+        # Spot-check: 2017-18(10), 2022-23(42), 2025-26(70)
+        assert 10 in ECNL_BOYS_SEASON_IDS
+        assert 42 in ECNL_BOYS_SEASON_IDS
+        assert 70 in ECNL_BOYS_SEASON_IDS
+
+    def test_ecrl_girls_season_ids_exported(self) -> None:
+        from bet.data.ecnl import ECRL_GIRLS_SEASON_IDS
+
+        # Spot-check: 2021-22(35), 2023-24(51), 2025-26(71)
+        assert 35 in ECRL_GIRLS_SEASON_IDS
+        assert 51 in ECRL_GIRLS_SEASON_IDS
+        assert 71 in ECRL_GIRLS_SEASON_IDS
+
+    def test_ecrl_boys_season_ids_exported(self) -> None:
+        from bet.data.ecnl import ECRL_BOYS_SEASON_IDS
+
+        # Spot-check: 2021-22(36), 2023-24(52), 2025-26(72)
+        assert 36 in ECRL_BOYS_SEASON_IDS
+        assert 52 in ECRL_BOYS_SEASON_IDS
+        assert 72 in ECRL_BOYS_SEASON_IDS
+
+    def test_all_ecnl_season_ids_is_union_of_four_leagues(self) -> None:
+        from bet.data.ecnl import (
+            ALL_ECNL_SEASON_IDS,
+            ECNL_BOYS_SEASON_IDS,
+            ECNL_GIRLS_SEASON_IDS,
+            ECRL_BOYS_SEASON_IDS,
+            ECRL_GIRLS_SEASON_IDS,
+        )
+
+        expected = set(
+            ECNL_GIRLS_SEASON_IDS
+            + ECNL_BOYS_SEASON_IDS
+            + ECRL_GIRLS_SEASON_IDS
+            + ECRL_BOYS_SEASON_IDS
+        )
+        assert set(ALL_ECNL_SEASON_IDS) == expected
+
+    def test_historical_girls_id_maps_to_ecnl_girls_slug(self) -> None:
+        # Season 41 = ECNL Girls 2022-23
+        client = _mock_client({41: [3000]}, {3000: [30000]}, [_COMPLETED_MATCH])
+        fetcher = ECNLDataFetcher(client=client, season_ids=[41])
+
+        result = fetcher.fetch()
+
+        assert result[0].sport == "ecnl_girls"
+
+    def test_historical_boys_id_maps_to_ecnl_boys_slug(self) -> None:
+        # Season 42 = ECNL Boys 2022-23
+        client = _mock_client({42: [3001]}, {3001: [30001]}, [_COMPLETED_MATCH])
+        fetcher = ECNLDataFetcher(client=client, season_ids=[42])
+
+        result = fetcher.fetch()
+
+        assert result[0].sport == "ecnl_boys"
+
+    def test_historical_ecrl_girls_id_maps_to_ecrl_girls_slug(self) -> None:
+        # Season 43 = ECRL Girls 2022-23
+        client = _mock_client({43: [3002]}, {3002: [30002]}, [_COMPLETED_MATCH])
+        fetcher = ECNLDataFetcher(client=client, season_ids=[43])
+
+        result = fetcher.fetch()
+
+        assert result[0].sport == "ecrl_girls"
+
+    def test_historical_ecrl_boys_id_maps_to_ecrl_boys_slug(self) -> None:
+        # Season 44 = ECRL Boys 2022-23
+        client = _mock_client({44: [3003]}, {3003: [30003]}, [_COMPLETED_MATCH])
+        fetcher = ECNLDataFetcher(client=client, season_ids=[44])
+
+        result = fetcher.fetch()
+
+        assert result[0].sport == "ecrl_boys"

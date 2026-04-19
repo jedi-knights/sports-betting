@@ -20,17 +20,40 @@ from datetime import UTC, datetime
 from ..backtesting.types import HistoricalGame
 from .athleteone import AthleteOneClient
 
-# 2025-26 season IDs for all four ECNL/ECRL leagues
+# Historical season IDs grouped by league.  Season IDs are not sequential
+# across years — the gap varies as the platform added new leagues.  IDs were
+# discovered by probing get-event-list-by-season-id back to 2015-16.
+ECNL_GIRLS_SEASON_IDS: list[int] = [5, 6, 9, 12, 16, 23, 33, 41, 49, 60, 69]
+ECNL_BOYS_SEASON_IDS: list[int] = [10, 13, 17, 24, 34, 42, 50, 61, 70]
+ECRL_GIRLS_SEASON_IDS: list[int] = [15, 19, 26, 35, 43, 51, 62, 71]
+ECRL_BOYS_SEASON_IDS: list[int] = [27, 36, 44, 52, 63, 72]
+
+# All national + regional league seasons; excludes Pre-ECNL developmental tiers
+ALL_ECNL_SEASON_IDS: list[int] = (
+    ECNL_GIRLS_SEASON_IDS + ECNL_BOYS_SEASON_IDS + ECRL_GIRLS_SEASON_IDS + ECRL_BOYS_SEASON_IDS
+)
+
+# Default covers the current (2025-26) season only.  Fetching all history
+# requires ~40 seasons × 10 conferences × 6 age groups of HTTP calls — callers
+# that want full history should pass ALL_ECNL_SEASON_IDS explicitly.
 _DEFAULT_SEASON_IDS = [69, 70, 71, 72]
 
 # Maps AthleteOne season ID → sport slug used in HistoricalGame.sport.
-# Season IDs are sequential and league-specific: Girls(69), Boys(70),
-# RL Girls(71), RL Boys(72) for the 2025-26 season.
 _SEASON_SPORT_SLUGS: dict[int, str] = {
-    69: "ecnl_girls",
-    70: "ecnl_boys",
-    71: "ecrl_girls",
-    72: "ecrl_boys",
+    **dict.fromkeys(ECNL_GIRLS_SEASON_IDS, "ecnl_girls"),
+    **dict.fromkeys(ECNL_BOYS_SEASON_IDS, "ecnl_boys"),
+    **dict.fromkeys(ECRL_GIRLS_SEASON_IDS, "ecrl_girls"),
+    **dict.fromkeys(ECRL_BOYS_SEASON_IDS, "ecrl_boys"),
+    # Pre-ECNL developmental leagues — included so unknown IDs get a correct slug
+    # if passed explicitly, but excluded from ALL_ECNL_SEASON_IDS
+    39: "pre_ecnl_girls",
+    47: "pre_ecnl_girls",
+    55: "pre_ecnl_girls",
+    66: "pre_ecnl_girls",
+    40: "pre_ecnl_boys",
+    48: "pre_ecnl_boys",
+    56: "pre_ecnl_boys",
+    67: "pre_ecnl_boys",
 }
 
 
