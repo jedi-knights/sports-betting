@@ -58,7 +58,7 @@ services:
       SPORT: ${SPORT:-nba,nfl,mlb,nhl}
       SEASON: ${SEASON:-2026}
       DATA_PATH: /data/odds.json
-      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-60}
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-86400}
       ODDS_API_KEY: ${ODDS_API_KEY}
       DATABASE_URL: postgres://${POSTGRES_USER:-sportsbetting}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-sportsbetting}?sslmode=disable
       VALKEY_ADDR: valkey:6379
