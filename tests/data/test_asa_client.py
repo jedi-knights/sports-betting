@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from bet.data.asa import ASAClient
 
 
@@ -98,3 +96,96 @@ class TestASAClientGames:
 
         # Assert
         assert result == []
+
+
+class TestASAClientMLS:
+    def test_get_mls_games_returns_list(self) -> None:
+        # Arrange
+        payload = [
+            {
+                "game_id": "mls_2024_001",
+                "date_time_utc": "2024-03-01 20:00:00",
+                "home_score": 1,
+                "away_score": 0,
+                "home_team_id": "ATL",
+                "away_team_id": "CHI",
+                "season_name": "2024",
+            }
+        ]
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps(payload).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        with patch("urllib.request.urlopen", return_value=mock_resp):
+            client = ASAClient()
+
+            # Act
+            result = client.get_mls_games()
+
+        # Assert
+        assert isinstance(result, list)
+        assert result[0]["game_id"] == "mls_2024_001"
+
+    def test_get_mls_games_with_season_name_adds_query_params(self) -> None:
+        # Arrange — verify the URL includes season_name and status filters
+        captured_urls: list[str] = []
+
+        def fake_urlopen(url):
+            captured_urls.append(url)
+            mock_resp = MagicMock()
+            mock_resp.read.return_value = b"[]"
+            mock_resp.__enter__ = lambda s: s
+            mock_resp.__exit__ = MagicMock(return_value=False)
+            return mock_resp
+
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            client = ASAClient()
+
+            # Act
+            client.get_mls_games(season_name="2024")
+
+        # Assert
+        assert len(captured_urls) == 1
+        assert "season_name=2024" in captured_urls[0]
+        assert "status=FullTime" in captured_urls[0]
+
+    def test_get_mls_games_without_season_omits_query_params(self) -> None:
+        # Arrange
+        captured_urls: list[str] = []
+
+        def fake_urlopen(url):
+            captured_urls.append(url)
+            mock_resp = MagicMock()
+            mock_resp.read.return_value = b"[]"
+            mock_resp.__enter__ = lambda s: s
+            mock_resp.__exit__ = MagicMock(return_value=False)
+            return mock_resp
+
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            client = ASAClient()
+
+            # Act
+            client.get_mls_games()
+
+        # Assert
+        assert "season_name" not in captured_urls[0]
+
+    def test_get_mls_teams_returns_list(self) -> None:
+        # Arrange
+        payload = [
+            {"team_id": "ATL", "team_name": "Atlanta United FC"},
+            {"team_id": "CHI", "team_name": "Chicago Fire FC"},
+        ]
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps(payload).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        with patch("urllib.request.urlopen", return_value=mock_resp):
+            client = ASAClient()
+            result = client.get_mls_teams()
+
+        # Assert
+        assert result[0]["team_id"] == "ATL"
+        assert result[0]["team_name"] == "Atlanta United FC"

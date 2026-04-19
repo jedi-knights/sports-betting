@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from bet.backtesting.types import HistoricalGame
 from bet.data.nwsl import NWSLDataFetcher
 
@@ -155,7 +153,7 @@ class TestNWSLDataFetcherFetch:
 
     def test_game_date_is_utc_datetime(self) -> None:
         # Arrange
-        from datetime import UTC, timezone
+        from datetime import UTC
 
         fetcher = NWSLDataFetcher(client=_mock_client(_SAMPLE_GAMES, _SAMPLE_TEAMS))
 
