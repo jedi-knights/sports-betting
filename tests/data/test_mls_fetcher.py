@@ -11,8 +11,8 @@ from bet.data.mls import MLSDataFetcher
 
 def _mock_client(games: list[dict], teams: list[dict]) -> MagicMock:
     client = MagicMock()
-    client.get_mls_games.return_value = games
-    client.get_mls_teams.return_value = teams
+    client.get_league_games.return_value = games
+    client.get_league_teams.return_value = teams
     return client
 
 
@@ -195,9 +195,9 @@ class TestMLSDataFetcherSeasons:
         fetcher.fetch()
 
         # Assert
-        assert client.get_mls_games.call_count == 2
-        client.get_mls_games.assert_any_call(season_name="2023")
-        client.get_mls_games.assert_any_call(season_name="2024")
+        assert client.get_league_games.call_count == 2
+        client.get_league_games.assert_any_call("mls", season_name="2023")
+        client.get_league_games.assert_any_call("mls", season_name="2024")
 
     def test_fetch_without_seasons_calls_get_games_once(self) -> None:
         # Arrange — no seasons: single call without season filter
@@ -208,14 +208,14 @@ class TestMLSDataFetcherSeasons:
         fetcher.fetch()
 
         # Assert
-        client.get_mls_games.assert_called_once_with()
+        client.get_league_games.assert_called_once_with("mls")
 
     def test_fetch_across_seasons_deduplicates_on_game_id(self) -> None:
         # Arrange — same game_id returned by two season queries must appear once
         game = _SAMPLE_GAMES[0]
         client = MagicMock()
-        client.get_mls_teams.return_value = _SAMPLE_TEAMS
-        client.get_mls_games.return_value = [game]  # same result for both seasons
+        client.get_league_teams.return_value = _SAMPLE_TEAMS
+        client.get_league_games.return_value = [game]  # same result for both seasons
         fetcher = MLSDataFetcher(client=client, seasons=["2024", "2024"])
 
         # Act
@@ -227,8 +227,8 @@ class TestMLSDataFetcherSeasons:
     def test_fetch_across_seasons_combines_results(self) -> None:
         # Arrange — each season returns one distinct game
         client = MagicMock()
-        client.get_mls_teams.return_value = _SAMPLE_TEAMS
-        client.get_mls_games.side_effect = [
+        client.get_league_teams.return_value = _SAMPLE_TEAMS
+        client.get_league_games.side_effect = [
             [_SAMPLE_GAMES[0]],
             [_SAMPLE_GAMES[1]],
         ]

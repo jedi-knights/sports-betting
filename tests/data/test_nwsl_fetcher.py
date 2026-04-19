@@ -10,8 +10,8 @@ from bet.data.nwsl import NWSLDataFetcher
 
 def _mock_client(games: list[dict], teams: list[dict]) -> MagicMock:
     client = MagicMock()
-    client.get_nwsl_games.return_value = games
-    client.get_nwsl_teams.return_value = teams
+    client.get_league_games.return_value = games
+    client.get_league_teams.return_value = teams
     return client
 
 
