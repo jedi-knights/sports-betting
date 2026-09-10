@@ -78,7 +78,10 @@ class BacktestPipeline:
         bankroll: float = 1000.0,
         min_train_games: int = 20,
         calibration_fraction: float = 0.2,
+        refit_interval: int = 1,
     ) -> None:
+        if refit_interval < 1:
+            raise ValueError(f"refit_interval must be >= 1, got {refit_interval}")
         self._model = model
         self._extractor = extractor
         self._detector = detector
@@ -86,6 +89,7 @@ class BacktestPipeline:
         self._bankroll = bankroll
         self._min_train_games = min_train_games
         self._calibration_fraction = calibration_fraction
+        self._refit_interval = refit_interval
 
     def predictions(
         self, games: list[HistoricalGame]
@@ -104,24 +108,31 @@ class BacktestPipeline:
             (game, estimate) pairs in chronological order.
         """
         sorted_games = sorted(games, key=lambda g: g.game_date)
+        predictions_since_last_fit = 0
+        model_is_fitted = False
         for test_game in sorted_games:
             train_games = [g for g in sorted_games if g.game_date < test_game.game_date]
             if len(train_games) < self._min_train_games:
                 continue
 
             assert_no_lookahead(train_games, test_game.game_date)
-            train_examples = [_to_training_example(g) for g in train_games]
 
-            try:
-                self._fit(train_games, train_examples)
-            except Exception as exc:
-                _logger.warning(
-                    "fit failed for event %s: %s",
-                    test_game.event_id,
-                    exc,
-                    exc_info=True,
-                )
-                continue
+            # Refit only when the interval says so — first eligible game always
+            # forces a fit, and thereafter every _refit_interval predictions.
+            if not model_is_fitted or predictions_since_last_fit >= self._refit_interval:
+                train_examples = [_to_training_example(g) for g in train_games]
+                try:
+                    self._fit(train_games, train_examples)
+                except Exception as exc:
+                    _logger.warning(
+                        "fit failed for event %s: %s",
+                        test_game.event_id,
+                        exc,
+                        exc_info=True,
+                    )
+                    continue
+                model_is_fitted = True
+                predictions_since_last_fit = 0
 
             try:
                 weather = _weather_kwargs(test_game)
@@ -150,6 +161,7 @@ class BacktestPipeline:
                 )
                 continue
 
+            predictions_since_last_fit += 1
             yield test_game, estimate
 
     def run(self, games: list[HistoricalGame]) -> list[BetResult]:

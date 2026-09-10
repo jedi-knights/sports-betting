@@ -183,6 +183,13 @@ def main() -> None:
     show_default=True,
     help="Wrap model in isotonic calibration (recommended; matches architecture spec)",
 )
+@click.option(
+    "--refit-interval",
+    default=1,
+    show_default=True,
+    type=int,
+    help="Refit the model once every N predictions (1 = exact walk-forward; higher = faster)",
+)
 def backtest(
     sport: str,
     data: str,
@@ -196,6 +203,7 @@ def backtest(
     max_odds: float,
     output: str | None,
     calibrate: bool,
+    refit_interval: int,
 ) -> None:
     """Run walk-forward backtesting on historical game data."""
     games = CSVDataLoader().load(data)
@@ -211,6 +219,7 @@ def backtest(
         sizer=KellySizer(fraction=kelly_fraction),
         bankroll=bankroll,
         min_train_games=min_train,
+        refit_interval=refit_interval,
     )
 
     results = pipeline.run(games)
@@ -265,6 +274,13 @@ def backtest(
     default=True,
     flag_value=False,
 )
+@click.option(
+    "--refit-interval",
+    default=1,
+    show_default=True,
+    type=int,
+    help="Refit the model once every N predictions (1 = exact walk-forward; higher = faster)",
+)
 @click.option("--output", type=click.Path(), default=None)
 def calibrate(
     sport: str,
@@ -273,6 +289,7 @@ def calibrate(
     min_train: int,
     k_factor: float,
     use_mov: bool,
+    refit_interval: int,
     output: str | None,
 ) -> None:
     """Evaluate model calibration quality: Brier score, log-loss, and ECE.
@@ -294,6 +311,7 @@ def calibrate(
         sizer=KellySizer(fraction=0.25),
         bankroll=1000.0,
         min_train_games=min_train,
+        refit_interval=refit_interval,
     )
 
     probs: list[float] = []
@@ -383,6 +401,13 @@ def _format_compare_table(sport: str, n_games: int, rows: list[dict[str, float |
     default=True,
     flag_value=False,
 )
+@click.option(
+    "--refit-interval",
+    default=1,
+    show_default=True,
+    type=int,
+    help="Refit the model once every N predictions (1 = exact walk-forward; higher = faster)",
+)
 @click.option("--output", type=click.Path(), default=None)
 def compare(
     sport: str,
@@ -390,6 +415,7 @@ def compare(
     min_train: int,
     k_factor: float,
     use_mov: bool,
+    refit_interval: int,
     output: str | None,
 ) -> None:
     """Compare every applicable model on the same walk-forward window.
@@ -417,6 +443,7 @@ def compare(
             sizer=KellySizer(fraction=0.25),
             bankroll=1000.0,
             min_train_games=min_train,
+            refit_interval=refit_interval,
         )
 
         probs: list[float] = []
