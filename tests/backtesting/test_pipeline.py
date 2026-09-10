@@ -12,6 +12,7 @@ from bet.features.soccer import SoccerFeatureExtractor
 from bet.modeling.elo import EloModel
 from bet.modeling.logistic import LogisticRegressionModel
 from bet.modeling.poisson import PoissonModel
+from bet.modeling.types import ProbabilityEstimate
 from bet.sizing.kelly import KellySizer
 from bet.tracking.metrics import compute_performance_report
 from bet.tracking.types import BetResult
@@ -412,3 +413,110 @@ class TestBacktestPipelineSoccer:
             "above 0.25 for some games; check that draw_odds lines are forwarded "
             "through _to_market_lines() and that the detector handles side='draw'."
         )
+
+
+def _make_soccer_games_no_odds(n: int = 40, seed: int = 7) -> list[HistoricalGame]:
+    """Soccer fixture with every odds column set to None.
+
+    Mirrors the shape of the free ASA data feed (MLS / NWSL), which returns
+    completed match results without any bookmaker odds.
+    """
+    rng = random.Random(seed)
+    teams = ["Arsenal", "Chelsea", "Liverpool", "ManCity", "Spurs", "United"]
+    base = datetime(2023, 8, 12, 15, 0, 0, tzinfo=UTC)
+    games = []
+    for i in range(n):
+        home = teams[i % len(teams)]
+        away = teams[(i + 2) % len(teams)]
+        game_date = base + timedelta(weeks=i // 3)
+        games.append(
+            HistoricalGame(
+                event_id=f"soccer-{i}",
+                sport="soccer",
+                home_team=home,
+                away_team=away,
+                game_date=game_date,
+                home_score=rng.randint(0, 4),
+                away_score=rng.randint(0, 4),
+                home_win_odds=None,
+                away_win_odds=None,
+                draw_odds=None,
+                closing_home_win_odds=None,
+                closing_away_win_odds=None,
+                closing_draw_odds=None,
+            )
+        )
+    return games
+
+
+class TestBacktestPipelinePredictions:
+    """Tests for BacktestPipeline.predictions() — raw model outputs, no odds required."""
+
+    def test_yields_one_estimate_per_eligible_game(self) -> None:
+        # Arrange
+        pipeline = _make_soccer_pipeline(min_edge=0.0, min_train=10)
+        games = _make_soccer_games_no_odds(30)
+
+        # Act
+        pairs = list(pipeline.predictions(games))
+
+        # Assert — most games past min_train_games get a prediction
+        # (early folds may still skip when the extractor lacks history for a team)
+        assert len(pairs) >= 15
+
+    def test_each_pair_is_game_and_probability_estimate(self) -> None:
+        # Arrange
+        pipeline = _make_soccer_pipeline(min_edge=0.0, min_train=10)
+
+        # Act
+        pairs = list(pipeline.predictions(_make_soccer_games_no_odds(20)))
+
+        # Assert
+        assert all(isinstance(g, HistoricalGame) for g, _ in pairs)
+        assert all(isinstance(p, ProbabilityEstimate) for _, p in pairs)
+
+    def test_works_when_all_odds_are_none(self) -> None:
+        """Predictions must not require odds — calibration only needs prob + outcome."""
+        # Arrange
+        pipeline = _make_soccer_pipeline(min_edge=0.0, min_train=10)
+        games = _make_soccer_games_no_odds(25)
+        assert all(g.home_win_odds is None for g in games)
+
+        # Act
+        pairs = list(pipeline.predictions(games))
+
+        # Assert
+        assert len(pairs) > 0
+
+    def test_probabilities_are_valid(self) -> None:
+        # Arrange
+        pipeline = _make_soccer_pipeline(min_edge=0.0, min_train=10)
+
+        # Act
+        pairs = list(pipeline.predictions(_make_soccer_games_no_odds(20)))
+
+        # Assert
+        for _, est in pairs:
+            assert 0.0 <= est.home_win <= 1.0
+            assert 0.0 <= est.away_win <= 1.0
+
+    def test_yielded_games_are_in_chronological_order(self) -> None:
+        # Arrange
+        pipeline = _make_soccer_pipeline(min_edge=0.0, min_train=10)
+
+        # Act
+        pairs = list(pipeline.predictions(_make_soccer_games_no_odds(25)))
+
+        # Assert
+        game_dates = [g.game_date for g, _ in pairs]
+        assert game_dates == sorted(game_dates)
+
+    def test_skips_games_before_min_train(self) -> None:
+        # Arrange
+        pipeline = _make_soccer_pipeline(min_edge=0.0, min_train=100)
+
+        # Act
+        pairs = list(pipeline.predictions(_make_soccer_games_no_odds(30)))
+
+        # Assert
+        assert pairs == []

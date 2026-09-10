@@ -153,3 +153,34 @@ class TestCalibrateCommand:
 
         # Assert
         assert result.exit_code == 0
+
+    def test_calibrate_runs_on_csv_without_odds(self, tmp_path: Path) -> None:
+        """Calibration only needs (prob, outcome) pairs — odds columns may be blank.
+
+        Free ASA feeds (MLS/NWSL) return match results without any bookmaker odds.
+        """
+        # Arrange
+        from datetime import UTC, datetime, timedelta
+
+        base = datetime(2023, 3, 1, tzinfo=UTC)
+        teams = ["Fire", "Union", "Rapids", "Galaxy", "Timbers"]
+        rows = []
+        for i in range(40):
+            home = teams[i % len(teams)]
+            away = teams[(i + 1) % len(teams)]
+            hs, as_ = (2, 1) if i % 3 != 0 else (0, 1)
+            game_date = (base + timedelta(days=i * 4)).isoformat()
+            rows.append(f"mls_{i:03d},mls,{home},{away},{game_date},{hs},{as_},,,,,,")
+        fixture = tmp_path / "mls.csv"
+        fixture.write_text(_CSV_HEADER + "\n" + "\n".join(rows) + "\n")
+        runner = CliRunner()
+
+        # Act
+        result = runner.invoke(
+            main,
+            ["calibrate", "--sport", "mls", "--data", str(fixture), "--model", "poisson"],
+        )
+
+        # Assert
+        assert result.exit_code == 0, result.output
+        assert "Brier" in result.output

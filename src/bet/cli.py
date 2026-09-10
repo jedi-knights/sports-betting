@@ -264,7 +264,13 @@ def calibrate(
     use_mov: bool,
     output: str | None,
 ) -> None:
-    """Evaluate model calibration quality: Brier score, log-loss, and ECE."""
+    """Evaluate model calibration quality: Brier score, log-loss, and ECE.
+
+    Runs the walk-forward pipeline and grades home-win probability estimates
+    against actual home-win outcomes. Does not require odds in the input CSV —
+    unlike the backtest command, calibration only needs (probability, outcome)
+    pairs.
+    """
     games = CSVDataLoader().load(data)
     click.echo(f"Loaded {len(games)} games from {data}")
 
@@ -279,25 +285,27 @@ def calibrate(
         min_train_games=min_train,
     )
 
-    results = pipeline.run(games)
-    if not results:
+    probs: list[float] = []
+    outcomes: list[int] = []
+    for game, estimate in pipeline.predictions(games):
+        probs.append(estimate.home_win)
+        outcomes.append(1 if game.home_score > game.away_score else 0)
+
+    if not probs:
         click.echo("No predictions generated — try reducing --min-train or providing more data.")
         sys.exit(1)
-
-    probs = [r.model_prob for r in results]
-    outcomes = [1 if r.won else 0 for r in results]
 
     bs = brier_score(probs, outcomes)
     ll = log_loss(probs, outcomes)
     ece = expected_calibration_error(probs, outcomes)
 
-    click.echo(f"\nCalibration report — {len(results)} predictions")
+    click.echo(f"\nCalibration report — {len(probs)} predictions")
     click.echo(f"  Brier score : {bs:.4f}  (0 = perfect, 0.25 = random)")
     click.echo(f"  Log loss    : {ll:.4f}  (lower is better)")
     click.echo(f"  ECE         : {ece:.4f}  (0 = perfect calibration)")
 
     if output:
-        report_dict = {"n_predictions": len(results), "brier_score": bs, "log_loss": ll, "ece": ece}
+        report_dict = {"n_predictions": len(probs), "brier_score": bs, "log_loss": ll, "ece": ece}
         try:
             with Path(output).open("w") as f:
                 json.dump(report_dict, f, indent=2)

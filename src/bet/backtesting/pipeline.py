@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 
 from ..modeling.protocols import CalibratableModel, FeatureExtractor, Model
-from ..modeling.types import ActualOutcome, FeatureSet, TrainingExample
+from ..modeling.types import ActualOutcome, FeatureSet, ProbabilityEstimate, TrainingExample
 from ..sizing.protocols import Sizer
 from ..tracking.types import BetResult
 from ..value.detector import MinimumEdgeDetector
@@ -86,26 +87,29 @@ class BacktestPipeline:
         self._min_train_games = min_train_games
         self._calibration_fraction = calibration_fraction
 
-    def run(self, games: list[HistoricalGame]) -> list[BetResult]:
-        """Execute walk-forward validation and return all resolved bet outcomes.
+    def predictions(
+        self, games: list[HistoricalGame]
+    ) -> Iterator[tuple[HistoricalGame, ProbabilityEstimate]]:
+        """Yield (game, probability estimate) for every game past ``min_train_games``.
+
+        Walks the games chronologically; for each eligible game, fits the model
+        on all prior games and produces one probability estimate. Yields nothing
+        for games whose fit, feature extraction, or predict step fails. Does not
+        touch odds or value detection — safe to call on data without odds.
 
         Args:
-            games: All historical games for the backtest period. Order does
-                not matter — they are sorted by game_date internally.
+            games: All historical games. Sorted internally by game_date.
 
-        Returns:
-            One BetResult per detected value bet, in chronological order.
+        Yields:
+            (game, estimate) pairs in chronological order.
         """
         sorted_games = sorted(games, key=lambda g: g.game_date)
-        results: list[BetResult] = []
-
         for test_game in sorted_games:
             train_games = [g for g in sorted_games if g.game_date < test_game.game_date]
             if len(train_games) < self._min_train_games:
                 continue
 
             assert_no_lookahead(train_games, test_game.game_date)
-
             train_examples = [_to_training_example(g) for g in train_games]
 
             try:
@@ -146,6 +150,20 @@ class BacktestPipeline:
                 )
                 continue
 
+            yield test_game, estimate
+
+    def run(self, games: list[HistoricalGame]) -> list[BetResult]:
+        """Execute walk-forward validation and return all resolved bet outcomes.
+
+        Args:
+            games: All historical games for the backtest period. Order does
+                not matter — they are sorted by game_date internally.
+
+        Returns:
+            One BetResult per detected value bet, in chronological order.
+        """
+        results: list[BetResult] = []
+        for test_game, estimate in self.predictions(games):
             lines = _to_market_lines(test_game)
             value_bets = self._detector.detect(estimate, lines)
 
