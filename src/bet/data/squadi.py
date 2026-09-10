@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import urllib.parse
 import urllib.request
-from typing import Any
+from typing import Any, cast
 
 _BASE_URL = "https://api.us.squadi.com/livescores"
 _USER_AGENT = (
@@ -54,9 +54,12 @@ class SquadiClient:
             List of raw competition dicts.  Each dict contains at minimum
             ``id``, ``name``, and ``yearRefId``.
         """
-        return self._get(
-            "competitions/list",
-            params={"organisationUniqueKey": org_key, "yearRefId": year_ref_id},
+        return cast(
+            list[dict[str, Any]],
+            self._get(
+                "competitions/list",
+                params={"organisationUniqueKey": org_key, "yearRefId": year_ref_id},
+            ),
         )
 
     def get_matches(self, competition_id: int) -> list[dict[str, Any]]:

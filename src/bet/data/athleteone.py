@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import re
 import urllib.request
-from typing import Any
+from typing import Any, cast
 
 _BASE_URL = "https://api.athleteone.com/api"
 _ORIGIN = "https://theecnl.com"
@@ -44,7 +44,7 @@ class AthleteOneClient:
             headers={"User-Agent": _USER_AGENT, "Origin": _ORIGIN},
         )
         with urllib.request.urlopen(req) as resp:  # noqa: S310
-            return resp.read()
+            return cast(bytes, resp.read())
 
     def get_event_ids_for_season(self, season_id: int) -> list[int]:
         """Return all event IDs for a Squadi season.
@@ -98,5 +98,5 @@ class AthleteOneClient:
         """
         raw = json.loads(self._request(f"Event/get-schedules-by-flight/{event_id}/{flight_id}/0"))
         if isinstance(raw, list):
-            return raw
-        return raw.get("data", [])
+            return cast(list[dict[str, Any]], raw)
+        return cast(list[dict[str, Any]], raw.get("data", []))

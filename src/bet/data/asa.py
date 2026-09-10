@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import urllib.parse
 import urllib.request
-from typing import Any
+from typing import Any, cast
 
 _BASE_URL = "https://app.americansocceranalysis.com/api/v1"
 
@@ -67,7 +67,7 @@ class ASAClient:
         params: dict[str, str] | None = None
         if season_name is not None:
             params = {"season_name": season_name, "status": "FullTime"}
-        return self._get(f"{league}/games", params=params)
+        return cast(list[dict[str, Any]], self._get(f"{league}/games", params=params))
 
     def get_league_teams(self, league: str) -> list[dict[str, Any]]:
         """Fetch the team reference table for any ASA-supported league.
@@ -80,7 +80,7 @@ class ASAClient:
             List of raw team dicts containing at minimum ``team_id`` and
             ``team_name``.
         """
-        return self._get(f"{league}/teams")
+        return cast(list[dict[str, Any]], self._get(f"{league}/teams"))
 
     # ------------------------------------------------------------------
     # League-specific wrappers — kept for backward compatibility
