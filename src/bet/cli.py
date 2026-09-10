@@ -317,6 +317,141 @@ def calibrate(
     sys.exit(0)
 
 
+_ALL_MODEL_NAMES: tuple[str, ...] = (
+    "elo",
+    "logistic",
+    "poisson",
+    "gradient_boosting",
+    "quantile",
+    "ensemble",
+)
+
+
+def _models_for_sport(sport: str) -> list[str]:
+    """Return every model name that is valid for the given sport.
+
+    Poisson requires soccer feature semantics; other models are sport-agnostic.
+    """
+    if sport in _SOCCER_LEAGUES:
+        return list(_ALL_MODEL_NAMES)
+    return [m for m in _ALL_MODEL_NAMES if m != "poisson"]
+
+
+def _format_compare_table(sport: str, n_games: int, rows: list[dict[str, float | str]]) -> str:
+    """Render the compare report as a markdown document with a ranked table."""
+    lines: list[str] = []
+    lines.append(f"# Model comparison — {sport}")
+    lines.append("")
+    lines.append(f"- **Games loaded**: {n_games}")
+    lines.append(f"- **Models compared**: {len(rows)}")
+    lines.append("- **Ranking**: ascending Brier score (lower is better)")
+    lines.append("")
+    lines.append("| Model | Brier | Log loss | ECE | Predictions |")
+    lines.append("|---|---:|---:|---:|---:|")
+    for r in rows:
+        lines.append(
+            f"| {r['model']} | {r['brier']:.4f} | {r['log_loss']:.4f} | {r['ece']:.4f} | {r['n']} |"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
+@main.command()
+@click.option(
+    "--sport",
+    required=True,
+    type=click.Choice(_SPORT_CHOICES),
+)
+@click.option("--data", required=True, type=click.Path(exists=True))
+@click.option("--min-train", default=20, show_default=True, type=int)
+@click.option("--k-factor", default=20.0, show_default=True, type=float)
+@click.option(
+    "--no-mov",
+    "use_mov",
+    is_flag=True,
+    default=True,
+    flag_value=False,
+)
+@click.option("--output", type=click.Path(), default=None)
+def compare(
+    sport: str,
+    data: str,
+    min_train: int,
+    k_factor: float,
+    use_mov: bool,
+    output: str | None,
+) -> None:
+    """Compare every applicable model on the same walk-forward window.
+
+    Runs each sport-compatible model (isotonic-calibrated) through the same
+    prediction loop and reports Brier score, log loss, ECE, and prediction
+    count. Rows are ranked by ascending Brier. Works on data without odds.
+    """
+    games = CSVDataLoader().load(data)
+    click.echo(f"Loaded {len(games)} games from {data}")
+
+    rows: list[dict[str, float | str]] = []
+    for model_name in _models_for_sport(sport):
+        try:
+            model, extractor = _build_model_and_extractor(sport, model_name, k_factor, use_mov)
+        except ValueError:
+            continue
+        model = _maybe_calibrate(model, calibrate=True)
+
+        pipeline = BacktestPipeline(
+            model=model,
+            extractor=extractor,
+            detector=MinimumEdgeDetector(min_edge=0.0),
+            sizer=KellySizer(fraction=0.25),
+            bankroll=1000.0,
+            min_train_games=min_train,
+        )
+
+        probs: list[float] = []
+        outcomes: list[int] = []
+        for game, estimate in pipeline.predictions(games):
+            probs.append(estimate.home_win)
+            outcomes.append(1 if game.home_score > game.away_score else 0)
+
+        if not probs:
+            click.echo(f"  {model_name}: no predictions (skipped)")
+            continue
+
+        rows.append(
+            {
+                "model": model_name,
+                "n": len(probs),
+                "brier": brier_score(probs, outcomes),
+                "log_loss": log_loss(probs, outcomes),
+                "ece": expected_calibration_error(probs, outcomes),
+            }
+        )
+        click.echo(
+            f"  {model_name}: brier={rows[-1]['brier']:.4f} "
+            f"log_loss={rows[-1]['log_loss']:.4f} ece={rows[-1]['ece']:.4f} "
+            f"n={rows[-1]['n']}"
+        )
+
+    if not rows:
+        click.echo("No models produced predictions.")
+        sys.exit(1)
+
+    rows.sort(key=lambda r: r["brier"])
+    report = _format_compare_table(sport, len(games), rows)
+    click.echo("")
+    click.echo(report)
+
+    if output:
+        try:
+            Path(output).write_text(report)
+            click.echo(f"Report written to {output}")
+        except OSError as exc:
+            click.echo(f"Error writing report to {output}: {exc}", err=True)
+            sys.exit(1)
+
+    sys.exit(0)
+
+
 @main.command(name="paper-trade")
 @click.option(
     "--sport",
