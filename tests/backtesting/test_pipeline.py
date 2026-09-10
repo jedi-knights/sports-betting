@@ -5,6 +5,8 @@ from __future__ import annotations
 import random
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from bet.backtesting.pipeline import BacktestPipeline
 from bet.backtesting.types import HistoricalGame
 from bet.features.nfl import NFLFeatureExtractor
@@ -520,3 +522,128 @@ class TestBacktestPipelinePredictions:
 
         # Assert
         assert pairs == []
+
+
+class _CountingModel:
+    """Test double that counts fit() invocations.
+
+    Wraps PoissonModel so predictions still work; only fit_count is added.
+    """
+
+    def __init__(self) -> None:
+        self._inner = PoissonModel()
+        self.fit_count = 0
+
+    @property
+    def model_id(self) -> str:
+        return self._inner.model_id
+
+    def fit(self, examples: object) -> None:
+        self.fit_count += 1
+        self._inner.fit(examples)  # type: ignore[arg-type]
+
+    def predict(self, features: object) -> ProbabilityEstimate:
+        return self._inner.predict(features)  # type: ignore[arg-type]
+
+
+class TestBacktestPipelineRefitInterval:
+    """Refit interval controls how often the model is re-trained during walk-forward.
+
+    interval=1 (default): refit at every prediction — exact walk-forward.
+    interval=K: refit once every K predictions — K-fold speedup.
+    """
+
+    def test_default_interval_refits_every_prediction(self) -> None:
+        # Arrange — default interval=1 refits once for every yielded prediction
+        counting = _CountingModel()
+        pipeline = BacktestPipeline(
+            model=counting,
+            extractor=SoccerFeatureExtractor(),
+            detector=MinimumEdgeDetector(min_edge=0.0),
+            sizer=KellySizer(fraction=0.25),
+            bankroll=1000.0,
+            min_train_games=10,
+        )
+        games = _make_soccer_games_no_odds(20)
+
+        # Act
+        pairs = list(pipeline.predictions(games))
+
+        # Assert
+        assert counting.fit_count == len(pairs)
+        assert counting.fit_count > 0
+
+    def test_interval_5_refits_once_per_5_games(self) -> None:
+        # Arrange
+        counting = _CountingModel()
+        pipeline = BacktestPipeline(
+            model=counting,
+            extractor=SoccerFeatureExtractor(),
+            detector=MinimumEdgeDetector(min_edge=0.0),
+            sizer=KellySizer(fraction=0.25),
+            bankroll=1000.0,
+            min_train_games=10,
+            refit_interval=5,
+        )
+        games = _make_soccer_games_no_odds(20)
+
+        # Act
+        list(pipeline.predictions(games))
+
+        # Assert — 10 eligible games / 5 = 2 refits
+        assert counting.fit_count == 2
+
+    def test_interval_larger_than_games_refits_once(self) -> None:
+        # Arrange
+        counting = _CountingModel()
+        pipeline = BacktestPipeline(
+            model=counting,
+            extractor=SoccerFeatureExtractor(),
+            detector=MinimumEdgeDetector(min_edge=0.0),
+            sizer=KellySizer(fraction=0.25),
+            bankroll=1000.0,
+            min_train_games=10,
+            refit_interval=100,
+        )
+        games = _make_soccer_games_no_odds(20)
+
+        # Act
+        list(pipeline.predictions(games))
+
+        # Assert — one refit at the first eligible game, none after
+        assert counting.fit_count == 1
+
+    def test_interval_still_yields_all_predictions(self) -> None:
+        """Increasing the interval must not reduce the number of predictions —
+        only reduce the frequency of refits."""
+        # Arrange
+        pipeline_1 = _make_soccer_pipeline(min_edge=0.0, min_train=10)
+        pipeline_10 = BacktestPipeline(
+            model=PoissonModel(),
+            extractor=SoccerFeatureExtractor(),
+            detector=MinimumEdgeDetector(min_edge=0.0),
+            sizer=KellySizer(fraction=0.25),
+            bankroll=1000.0,
+            min_train_games=10,
+            refit_interval=10,
+        )
+        games = _make_soccer_games_no_odds(30)
+
+        # Act
+        n_at_1 = len(list(pipeline_1.predictions(games)))
+        n_at_10 = len(list(pipeline_10.predictions(games)))
+
+        # Assert
+        assert n_at_1 == n_at_10
+
+    def test_interval_zero_rejected(self) -> None:
+        # Act / Assert
+        with pytest.raises(ValueError, match="refit_interval"):
+            BacktestPipeline(
+                model=PoissonModel(),
+                extractor=SoccerFeatureExtractor(),
+                detector=MinimumEdgeDetector(min_edge=0.0),
+                sizer=KellySizer(fraction=0.25),
+                bankroll=1000.0,
+                refit_interval=0,
+            )
