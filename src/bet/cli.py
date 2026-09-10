@@ -91,6 +91,16 @@ def _build_model_and_extractor(
     k_factor: float,
     use_mov: bool,
 ) -> tuple[Model, FeatureExtractor]:
+    # Elo hardcodes features["home_elo"] / ["away_elo"] in predict(). Soccer
+    # feature extractors emit attack/defense strengths — no elo keys — so
+    # elo + soccer raises KeyError at predict time. Ensemble bundles Elo, so
+    # it inherits the same restriction until a soccer-Elo extractor exists.
+    if sport in _SOCCER_LEAGUES and model_name in ("elo", "ensemble"):
+        raise ValueError(
+            f"model '{model_name}' is not compatible with soccer sport '{sport}': "
+            f"Elo requires an extractor that emits 'home_elo' / 'away_elo' features"
+        )
+
     extractor = _EXTRACTOR_FACTORIES[sport](k_factor, use_mov)
 
     if sport in _SOCCER_LEAGUES and model_name == "poisson":
@@ -395,7 +405,8 @@ def compare(
     for model_name in _models_for_sport(sport):
         try:
             model, extractor = _build_model_and_extractor(sport, model_name, k_factor, use_mov)
-        except ValueError:
+        except ValueError as exc:
+            click.echo(f"  {model_name}: incompatible ({exc})")
             continue
         model = _maybe_calibrate(model, calibrate=True)
 
