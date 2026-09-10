@@ -213,10 +213,13 @@ class BacktestPipeline:
 
         probs: list[float] = []
         outcomes: list[int] = []
+        attempted = 0
+        last_exc: Exception | None = None
         for cal_game in cal_games:
             earlier = [e for e in fit_examples if e.feature_set.as_of < cal_game.game_date]
             if not earlier:
                 continue
+            attempted += 1
             try:
                 self._extractor.fit(earlier)
                 cal_weather = _weather_kwargs(cal_game)
@@ -232,12 +235,22 @@ class BacktestPipeline:
                 probs.append(raw.home_win)
                 outcomes.append(1 if cal_game.home_score > cal_game.away_score else 0)
             except Exception as exc:
+                last_exc = exc
                 _logger.debug(
                     "calibration fold failed for event %s: %s",
                     cal_game.event_id,
                     exc,
                 )
                 continue
+
+        if attempted > 0 and not probs:
+            # Every fold failed — surface the underlying cause instead of
+            # letting predict() fail downstream with an opaque "call
+            # fit_calibrator() before predict()".
+            raise RuntimeError(
+                f"calibration fold produced 0 probs across {attempted} attempts; "
+                f"last error: {type(last_exc).__name__}: {last_exc}"
+            )
 
         if len(probs) >= 2:
             calibratable = self._model
