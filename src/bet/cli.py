@@ -9,6 +9,7 @@ import sys
 from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
+from typing import Protocol
 from urllib.parse import urlparse
 
 import click
@@ -516,7 +517,13 @@ _MLS_SEASONS = [str(y) for y in range(2013, 2025)]
 _CSV_FIELDNAMES = [f.name for f in dataclasses.fields(HistoricalGame)]
 
 
-def _build_fetcher(league: str, history: bool):
+class _Fetcher(Protocol):
+    """Structural type for any league fetcher exposing ``.fetch()``."""
+
+    def fetch(self) -> list[HistoricalGame]: ...
+
+
+def _build_fetcher(league: str, history: bool) -> _Fetcher:
     if league == "nwsl":
         return NWSLDataFetcher()
     if league == "mls":
@@ -537,8 +544,8 @@ def _build_fetcher(league: str, history: bool):
     return ECNLDataFetcher(season_ids=ALL_ECNL_SEASON_IDS if history else None)
 
 
-def _game_to_csv_row(game: HistoricalGame) -> dict:
-    def _opt(v):
+def _game_to_csv_row(game: HistoricalGame) -> dict[str, object]:
+    def _opt(v: object) -> object:
         return "" if v is None else v
 
     return {

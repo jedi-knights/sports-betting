@@ -11,6 +11,7 @@ are excluded because the model is trained only on the top division.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 from ..backtesting.types import HistoricalGame
 from .squadi import SquadiClient
@@ -69,7 +70,7 @@ class WPSLDataFetcher:
 
         return sorted(games, key=lambda g: g.game_date)
 
-    def _to_game(self, match: dict, event_id: str) -> HistoricalGame:
+    def _to_game(self, match: dict[str, Any], event_id: str) -> HistoricalGame:
         game_date = datetime.strptime(match["startTime"], "%Y-%m-%dT%H:%M:%S.%fZ").replace(
             tzinfo=UTC
         )

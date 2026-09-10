@@ -16,6 +16,7 @@ Match data is always fetched fresh.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 from ..backtesting.types import HistoricalGame
 from .athleteone import AthleteOneClient
@@ -117,7 +118,7 @@ class ECNLDataFetcher:
             self._flight_ids_cache[event_id] = self._client.get_flight_ids_for_event(event_id)
         return self._flight_ids_cache[event_id]
 
-    def _to_game(self, match: dict, event_id: str, sport_slug: str) -> HistoricalGame:
+    def _to_game(self, match: dict[str, Any], event_id: str, sport_slug: str) -> HistoricalGame:
         game_date = datetime.strptime(match["gameDate"], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=UTC)
         return HistoricalGame(
             event_id=event_id,
